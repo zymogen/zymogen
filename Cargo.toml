@@ -1,0 +1,7 @@
+[package]
+name = "zymogen"
+version = "0.1.0"
+authors = ["Michael <Michael@LAZEAR-WORK>"]
+edition = "2018"
+
+[dependencies]
