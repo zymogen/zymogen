@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 #[derive(PartialEq, PartialOrd, Debug)]
 pub enum TokenKind {
     LeftParen,
@@ -24,20 +26,14 @@ pub struct Token {
 }
 
 impl TokenKind {
-    fn size(&self) -> usize {
+    pub fn size(&self) -> usize {
         match self {
             TokenKind::Boolean(true) => 4,
             TokenKind::Boolean(false) => 5,
-            TokenKind::Integer(i) => (i / 10) as usize,
+            TokenKind::Integer(i) => i.to_string().len(),
             TokenKind::Literal(s) => s.len(),
             TokenKind::Identifier(s) => s.len(),
             _ => 1,
         }
-    }
-}
-
-impl Token {
-    fn kind(&self) -> &TokenKind {
-        &self.kind
     }
 }
