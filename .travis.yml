@@ -7,6 +7,6 @@ matrix:
     - rust: nightly
 script:
   - cargo build --verbose --all
-  - cargo test --lib
+  - cargo test
 notifications:
   email: false
