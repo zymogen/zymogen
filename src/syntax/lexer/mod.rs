@@ -99,9 +99,14 @@ impl<'s> Lexer<'s> {
 
     fn read_literal(&mut self) -> Result<Token, Error> {
         if let Some('"') = self.consume() {
+            let start = (self.line, self.pos);
             let ret = self.consume_while(|ch| ch != '"');
             if self.consume().is_none() {
-                return self.error(ErrorKind::EOF);
+                return Err(Error {
+                    kind: ErrorKind::Unbalanced,
+                    pos: start.1,
+                    line: start.0,
+                });
             }
             self.token(TokenKind::Literal(ret))
         } else {

@@ -30,3 +30,34 @@ pub enum Keyword {
     Unquote,
     UnquoteAt,
 }
+
+
+impl Expression {
+    fn as_ident(&self) -> Option<String> {
+        match self {
+            Expression::Identifier(s) => Some(s.clone()),
+            _ => None
+        }
+    }
+
+    fn unpack1(&self) -> Option<&Expression> {
+        match self {
+            Expression::List(v) => Some(v.get(0)?),
+            _ => None,
+        }
+    }
+
+    fn unpack2(&self) -> Option<(&Expression, &Expression)> {
+        match self {
+            Expression::List(v) => Some((v.get(0)?, v.get(1)?)),
+            _ => None,
+        }
+    }
+
+    fn unpack3(&self) -> Option<(&Expression, &Expression, &Expression)> {
+        match self {
+            Expression::List(v) => Some((v.get(0)?, v.get(1)?, v.get(2)?)),
+            _ => None,
+        }
+    }
+}

@@ -1,5 +1,5 @@
 pub mod syntax;
-
+pub mod compiler;
 use std::env;
 use std::fs;
 use std::io::{self, prelude::*};
@@ -21,7 +21,13 @@ fn main() -> io::Result<()> {
     }
     println!("zymogen interpreter");
     for s in inputs {
-        println!("{}", s);
+        let tokens = match syntax::parse(&s.trim()) {
+            Ok(tokens) => tokens,
+            Err(e) => {
+                eprintln!("{}", e);
+                return Ok(());
+            }
+        };
     }
 
     println!("REPL mode:");
@@ -35,17 +41,16 @@ fn main() -> io::Result<()> {
             handle.read_line(&mut buffer)?;
             let left = buffer.matches('(').count() as i32;
             let right = buffer.matches(')').count() as i32;
-            if left == right {
+            if left <= right {
                 break;
             }
-
             // Do some pretty formatting for indent levels
             let delta = left - right;
             if delta > depth {
                 indent += 4;
                 depth = delta;
             } else if delta < depth {
-                indent -= 4;
+                indent = indent.max(4) - 4;
                 depth = delta;
             }
             print!("{}", (0..indent).map(|_| ' ').collect::<String>());
@@ -59,7 +64,7 @@ fn main() -> io::Result<()> {
             }
         };
 
-        println!("===> {:#?}", tokens);
+        println!("===> {:#?}", tokens.into_iter().map(|tok| compiler::analyze(tok)).collect::<Vec<compiler::hir::Expression>>());
         buffer.clear();
     }
     Ok(())

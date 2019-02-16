@@ -11,3 +11,4 @@ keywords = ["interpreter", "compiler", "functional", "language"]
 edition = "2018"
 
 [dependencies]
+colored = "1.7.0"

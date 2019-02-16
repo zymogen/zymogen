@@ -107,7 +107,7 @@ impl<'l> Parser<'l> {
             Err(e) => return Some(Err(e)),
             Ok(token) => token,
         };
-        dbg!(&token);
+
         let expr = match token.kind {
             LeftParen => self.parse_list(),
             RightParen => Err(Error::from_token(&token, ErrorKind::Unbalanced)),
