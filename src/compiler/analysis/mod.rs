@@ -2,7 +2,6 @@ use super::super::syntax::Expression as Sexp;
 use super::super::syntax::Keyword::*;
 use super::ir::hir::{self, Expression::*, *};
 
-
 pub fn analyze_lambda(exprs: Vec<Sexp>) -> Expression {
     Expression::Primitive(PrimitiveExpr::Lambda)
 }
@@ -32,13 +31,13 @@ pub fn analyze_definition(exprs: Vec<Sexp>) -> Expression {
 
 pub fn analyze_list(exprs: Vec<Sexp>) -> Expression {
     match exprs.get(0).unwrap() {
-      //  Sexp::Keyword(Begin) => analyze_begin(exprs),
+        //  Sexp::Keyword(Begin) => analyze_begin(exprs),
         Sexp::Keyword(Lambda) => analyze_lambda(exprs),
         Sexp::Keyword(Define) => analyze_definition(exprs),
-       // Sexp::Keyword(And) | Sexp::Keyword(Or) => analyze_binary(exprs),
-     //   Sexp::Keyword(Let) | Sexp::Keyword(Letstar) | Sexp::Keyword(Letrec) => analyze_let(exprs),
+        // Sexp::Keyword(And) | Sexp::Keyword(Or) => analyze_binary(exprs),
+        //   Sexp::Keyword(Let) | Sexp::Keyword(Letstar) | Sexp::Keyword(Letrec) => analyze_let(exprs),
         Sexp::Identifier(_) => Expression::Primitive(PrimitiveExpr::Call),
-        unknown => panic!("{:?}", unknown)
+        unknown => panic!("{:?}", unknown),
     }
 }
 

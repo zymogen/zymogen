@@ -31,12 +31,11 @@ pub enum Keyword {
     UnquoteAt,
 }
 
-
 impl Expression {
     fn as_ident(&self) -> Option<String> {
         match self {
             Expression::Identifier(s) => Some(s.clone()),
-            _ => None
+            _ => None,
         }
     }
 

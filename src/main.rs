@@ -1,5 +1,5 @@
-pub mod syntax;
 pub mod compiler;
+pub mod syntax;
 use std::env;
 use std::fs;
 use std::io::{self, prelude::*};
@@ -64,7 +64,13 @@ fn main() -> io::Result<()> {
             }
         };
 
-        println!("===> {:#?}", tokens.into_iter().map(|tok| compiler::analyze(tok)).collect::<Vec<compiler::hir::Expression>>());
+        println!(
+            "===> {:#?}",
+            tokens
+                .into_iter()
+                .map(|tok| compiler::analyze(tok))
+                .collect::<Vec<compiler::hir::Expression>>()
+        );
         buffer.clear();
     }
     Ok(())

@@ -27,7 +27,9 @@ impl Error {
             ErrorKind::Unbalanced => format!("unbalanced expression!"),
         };
 
-        let mut output = format!("\nError at line {} char {}\n", self.line, self.pos).yellow().to_string();
+        let mut output = format!("\nError at line {} char {}\n", self.line, self.pos)
+            .yellow()
+            .to_string();
         for (ln, line) in source
             .as_ref()
             .lines()
@@ -37,7 +39,10 @@ impl Error {
         {
             output.push_str(&format!("{:>4}|    {}\n", ln, line));
             if ln == self.line as usize {
-                output.push_str(&format!("{}", (0..9 + self.pos).map(|_| ' ').collect::<String>()));
+                output.push_str(&format!(
+                    "{}",
+                    (0..9 + self.pos).map(|_| ' ').collect::<String>()
+                ));
                 output.push_str(&format!("^~~~ {}\n", msg).red().to_string());
             }
         }

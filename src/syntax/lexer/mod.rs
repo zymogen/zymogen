@@ -99,7 +99,7 @@ impl<'s> Lexer<'s> {
 
     fn read_literal(&mut self) -> Result<Token, Error> {
         if let Some('"') = self.consume() {
-            let start = (self.line, self.pos);
+            let start = (self.line, self.pos - 1);
             let ret = self.consume_while(|ch| ch != '"');
             if self.consume().is_none() {
                 return Err(Error {
@@ -270,8 +270,8 @@ mod test {
         let lexer = Lexer::new(input);
         let tokens = lexer.lex();
         let expected = Err(Error {
-            kind: ErrorKind::EOF,
-            pos: input.len() as u32,
+            kind: ErrorKind::Unbalanced,
+            pos: 0,
             line: 0,
         });
         assert_eq!(expected, tokens);
