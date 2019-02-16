@@ -1,16 +1,14 @@
 #![allow(dead_code)]
 
-#[derive(PartialEq, PartialOrd, Debug)]
+#[derive(PartialEq, PartialOrd, Debug, Clone)]
 pub enum TokenKind {
     LeftParen,
     RightParen,
     Quote,
     Quasiquote,
     Unquote,
-    Lambda,
-    Let,
-    Define,
-    If,
+    UnquoteAt,
+    Dot,
     Boolean(bool),
     Integer(i64),
     Literal(String),

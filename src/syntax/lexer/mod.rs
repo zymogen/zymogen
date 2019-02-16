@@ -33,7 +33,7 @@ impl<'s> Lexer<'s> {
     }
 
     /// Return an [`Error`] containing source position
-    fn error(&self, kind: ErrorKind) -> Result<Token, Error> {
+    pub fn error(&self, kind: ErrorKind) -> Result<Token, Error> {
         Err(Error {
             kind,
             pos: self.pos,
@@ -86,11 +86,9 @@ impl<'s> Lexer<'s> {
             return self.error(ErrorKind::EOF);
         }
         match ident.as_ref() {
-            "lambda" => self.token(TokenKind::Lambda),
-            "if" => self.token(TokenKind::If),
-            "let" => self.token(TokenKind::Let),
-            "define" => self.token(TokenKind::Define),
+            "#t" => self.token(TokenKind::Boolean(true)),
             "true" => self.token(TokenKind::Boolean(true)),
+            "#f" => self.token(TokenKind::Boolean(false)),
             "false" => self.token(TokenKind::Boolean(false)),
             "quote" => self.token(TokenKind::Quote),
             "quasiquote" => self.token(TokenKind::Quasiquote),
@@ -129,6 +127,7 @@ impl<'s> Lexer<'s> {
         }
     }
 
+    /// Return the next [`Token`] from the input stream
     pub fn next_token(&mut self) -> Result<Token, Error> {
         // Eat whitespace at beginning of current input
         self.consume_while(char::is_whitespace);
@@ -144,7 +143,15 @@ impl<'s> Lexer<'s> {
                 }
                 '\'' => self.advance(TokenKind::Quote),
                 '`' => self.advance(TokenKind::Quasiquote),
-                ',' => self.advance(TokenKind::Unquote),
+                ',' => {
+                    self.consume().unwrap();
+                    if let Some(&'@') = self.peek() {
+                        self.advance(TokenKind::UnquoteAt)
+                    } else {
+                        self.token(TokenKind::Unquote)
+                    }
+                }
+                '.' => self.advance(TokenKind::Dot),
                 '"' => self.read_literal(),
                 x if x.is_numeric() => self.read_number(),
                 x if is_identifier_char(x) => self.read_identifier(),
@@ -159,6 +166,7 @@ impl<'s> Lexer<'s> {
         }
     }
 
+    /// Consume a [`Lexer`], reuturning a list of [`Token`]'s, or an [`Error`]
     pub fn lex(mut self) -> Result<Vec<Token>, Error> {
         let mut tokens = Vec::new();
         loop {
@@ -236,9 +244,7 @@ mod test {
 
     #[test]
     fn lex_keywords() {
-        use TokenKind::*;
-
-        let input = "lambda define let if '`,;";
+        let input = "lambda define let if;";
         let lexer = Lexer::new(input);
         let tokens = lexer
             .lex()
@@ -246,7 +252,10 @@ mod test {
             .into_iter()
             .map(|tok| tok.kind)
             .collect::<Vec<TokenKind>>();
-        let expected = vec![Lambda, Define, Let, If, Quote, Quasiquote, Unquote];
+        let expected = ["lambda", "define", "let", "if"]
+            .into_iter()
+            .map(|s| TokenKind::Identifier(s.to_string()))
+            .collect::<Vec<TokenKind>>();
         assert_eq!(expected, tokens);
     }
 

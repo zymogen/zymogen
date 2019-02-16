@@ -1,4 +1,4 @@
-mod syntax;
+pub mod syntax;
 
 use std::env;
 use std::fs;
@@ -51,13 +51,14 @@ fn main() -> io::Result<()> {
             print!("{}", (0..indent).map(|_| ' ').collect::<String>());
             io::stdout().flush()?;
         }
-        let tokens = match syntax::lex(&buffer) {
+        let tokens = match syntax::parse(&buffer.trim()) {
             Ok(tokens) => tokens,
             Err(e) => {
                 eprint!("{}", e);
                 break;
             }
         };
+
         println!("===> {:#?}", tokens);
         buffer.clear();
     }
