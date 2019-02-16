@@ -37,7 +37,7 @@ fn main() -> io::Result<()> {
             let right = buffer.matches(')').count() as i32;
             if left == right {
                 break;
-            } 
+            }
 
             // Do some pretty formatting for indent levels
             let delta = left - right;

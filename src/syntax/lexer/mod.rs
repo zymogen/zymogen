@@ -1,8 +1,10 @@
+//! Tokenization of input streams
 #![allow(dead_code)]
 use super::error::{Error, ErrorKind};
-use super::token::{Token, TokenKind};
 use std::iter::Peekable;
 use std::str;
+pub mod token;
+use token::{Token, TokenKind};
 
 pub struct Lexer<'s> {
     input: Peekable<str::Chars<'s>>,
@@ -25,7 +27,7 @@ impl<'s> Lexer<'s> {
         let sz = kind.size() as u32;
         Ok(Token {
             kind,
-            pos: self.pos - sz,
+            pos: self.pos - sz.min(self.pos),
             line: self.line,
         })
     }
@@ -90,6 +92,9 @@ impl<'s> Lexer<'s> {
             "define" => self.token(TokenKind::Define),
             "true" => self.token(TokenKind::Boolean(true)),
             "false" => self.token(TokenKind::Boolean(false)),
+            "quote" => self.token(TokenKind::Quote),
+            "quasiquote" => self.token(TokenKind::Quasiquote),
+            "unquote" => self.token(TokenKind::Unquote),
             _ => self.token(TokenKind::Identifier(ident)),
         }
     }
@@ -109,9 +114,9 @@ impl<'s> Lexer<'s> {
     fn read_number(&mut self) -> Result<Token, Error> {
         let s = self.consume_while(char::is_numeric);
         let i = s.parse::<i64>().expect("Verified numeric chars");
-        // generate this one manually so we don't have to calculate int length
+
         Ok(Token {
-            pos: self.pos - s.len() as u32,
+            pos: self.pos - s.len().min(self.pos as usize) as u32,
             line: self.line,
             kind: TokenKind::Integer(i),
         })

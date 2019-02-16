@@ -1,9 +1,11 @@
 mod error;
 mod lexer;
-mod token;
+mod parser;
 pub use error::{Error, ErrorKind};
-pub use lexer::Lexer;
-pub use token::{Token, TokenKind};
+pub use lexer::{
+    token::{Token, TokenKind},
+    Lexer,
+};
 
 pub fn lex<S: AsRef<str>>(s: S) -> Result<Vec<Token>, String> {
     match Lexer::new(s.as_ref()).lex() {
@@ -11,29 +13,38 @@ pub fn lex<S: AsRef<str>>(s: S) -> Result<Vec<Token>, String> {
         Err(e) => {
             let msg = match e.kind {
                 ErrorKind::EOF => "unexpected end-of-file",
-                ErrorKind::Invalid(ch) => "invalid character in input",
+                ErrorKind::Invalid(_) => "invalid character in input",
             };
 
-            if e.line > 2 {
+            if e.line > 1 {
                 let t = e.line as usize;
-                let lines = s
+                let mut output = format!("Error at line {} char {}: {}\n", e.line, e.pos, msg);
+                for (ln, line) in s
                     .as_ref()
                     .lines()
-                    .skip(e.line as usize - 2)
-                    .take(2)
-                    .map(String::from)
-                    .collect::<Vec<String>>();
-                Err(format!(
-                    "...\n{}\n{}^~~{}\n",
-                    lines.join("\n"),
-                    (0..e.pos).map(|_| ' ').collect::<String>(),
-                    msg
-                ))
+                    .enumerate()
+                    .skip(e.line as usize - std::cmp::min(e.line, 5) as usize)
+                    .take(std::cmp::min(e.line, 5) as usize + 1)
+                {
+                    output.push_str(&format!("{:>4}|    {}\n", ln, line.trim()));
+                    if ln == e.line as usize {
+                        output.push_str(&format!(
+                            "{}^~~~\n",
+                            (0..9 + e.pos).map(|_| ' ').collect::<String>()
+                        ));
+                    }
+                }
+
+                Err(output)
             } else {
                 Err(format!(
-                    "{}{}^~~\n",
+                    "Error at line {} char {}: {}\n{:>4}|    {}{}^~~_\n",
+                    e.line,
+                    e.pos,
+                    msg,
+                    e.line,
                     s.as_ref(),
-                    (0..e.pos).map(|_| ' ').collect::<String>()
+                    (0..9 + e.pos).map(|_| ' ').collect::<String>()
                 ))
             }
         }
