@@ -41,7 +41,7 @@ fn main() -> io::Result<()> {
             handle.read_line(&mut buffer)?;
             let left = buffer.matches('(').count() as i32;
             let right = buffer.matches(')').count() as i32;
-            if left <= right {
+            if left <= right && !buffer.trim().is_empty() {
                 break;
             }
             // Do some pretty formatting for indent levels
@@ -64,13 +64,7 @@ fn main() -> io::Result<()> {
             }
         };
 
-        println!(
-            "===> {:#?}",
-            tokens
-                .into_iter()
-                .map(|tok| compiler::analyze(tok))
-                .collect::<Vec<compiler::hir::Expression>>()
-        );
+        println!("===> {:#?}", tokens);
         buffer.clear();
     }
     Ok(())

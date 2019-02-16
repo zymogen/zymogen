@@ -1,6 +1,6 @@
 use super::*;
 mod expr;
-pub use expr::{Expression, Keyword};
+pub use expr::{Keyword, List, Sexp};
 
 pub struct Parser<'l> {
     lexer: Lexer<'l>,
@@ -35,7 +35,7 @@ impl<'l> Parser<'l> {
         }
     }
 
-    fn parse_list(&mut self) -> Result<Expression, Error> {
+    fn parse_list(&mut self) -> Result<Sexp, Error> {
         let mut vec = Vec::new();
         loop {
             match self.peek() {
@@ -60,17 +60,16 @@ impl<'l> Parser<'l> {
             }
         }
 
-        // let mut list = Expression::Nil;
-        // while let Some(n) = vec.pop() {
-        //     list = Expression::List(Box::new(n), Box::new(list));
-        // }
-
-        Ok(Expression::List(vec))
+        let mut list = List::Nil;
+        while let Some(exp) = vec.pop() {
+            list = List::Cons(Box::new(exp), Box::new(list));
+        }
+        Ok(Sexp::List(list))
     }
 
-    fn to_keyword(ident: String) -> Result<Expression, Error> {
+    fn to_keyword(ident: String) -> Result<Sexp, Error> {
         use expr::Keyword::*;
-        use Expression::*;
+        use Sexp::*;
         let res = match ident.as_ref() {
             "quote" => Keyword(Quote),
             "lambda" => Keyword(Lambda),
@@ -101,7 +100,7 @@ impl<'l> Parser<'l> {
     ///
     /// TODO: Look into refactoring the parse module to just call syntax::lex()
     /// and operate on a vec of tokens, instead of lexing on demand
-    pub fn parse_expr(&mut self) -> Option<Result<Expression, Error>> {
+    pub fn parse_expr(&mut self) -> Option<Result<Sexp, Error>> {
         use TokenKind::*;
         let token = match self.consume() {
             Err(e) => return Some(Err(e)),
@@ -111,14 +110,14 @@ impl<'l> Parser<'l> {
         let expr = match token.kind {
             LeftParen => self.parse_list(),
             RightParen => Err(Error::from_token(&token, ErrorKind::Unbalanced)),
-            Quote => Ok(Expression::Keyword(Keyword::Quote)),
-            Quasiquote => Ok(Expression::Keyword(Keyword::Quasiquote)),
-            Unquote => Ok(Expression::Keyword(Keyword::Unquote)),
-            UnquoteAt => Ok(Expression::Keyword(Keyword::UnquoteAt)),
+            Quote => Ok(Sexp::Keyword(Keyword::Quote)),
+            Quasiquote => Ok(Sexp::Keyword(Keyword::Quasiquote)),
+            Unquote => Ok(Sexp::Keyword(Keyword::Unquote)),
+            UnquoteAt => Ok(Sexp::Keyword(Keyword::UnquoteAt)),
             Dot => Err(Error::from_token(&token, ErrorKind::Unbalanced)),
-            Boolean(b) => Ok(Expression::Boolean(b)),
-            Integer(i) => Ok(Expression::Integer(i)),
-            Literal(s) => Ok(Expression::Literal(s)),
+            Boolean(b) => Ok(Sexp::Boolean(b)),
+            Integer(i) => Ok(Sexp::Integer(i)),
+            Literal(s) => Ok(Sexp::Literal(s)),
             Identifier(s) => Parser::to_keyword(s),
             EOF => return None,
         };
@@ -126,11 +125,11 @@ impl<'l> Parser<'l> {
     }
 
     /// Consume a [`Parser`], returning a list of [`Expression`]'s, or an [`Error`]
-    pub fn parse(mut self) -> Result<Vec<Expression>, Error> {
+    pub fn parse(mut self) -> Result<Vec<Sexp>, Error> {
         std::iter::repeat_with(|| self.parse_expr())
             .take_while(Option::is_some)
             .filter_map(|x| x)
-            .collect::<Result<Vec<Expression>, Error>>()
+            .collect::<Result<Vec<Sexp>, Error>>()
     }
 }
 
@@ -138,49 +137,68 @@ impl<'l> Parser<'l> {
 mod test {
     use super::*;
     use expr::Keyword::*;
-    use Expression::*;
+    use expr::List;
+    use Sexp::*;
 
-    #[test]
-    fn parse_expr() {
-        let input = "(lambda (x y) (cons x y))";
-        let expected = vec![Expression::List(vec![
-            Keyword(Lambda),
-            List(vec![
-                Identifier("x".to_string()),
-                Identifier("y".to_string()),
-            ]),
-            List(vec![
-                Identifier("cons".to_string()),
-                Identifier("x".to_string()),
-                Identifier("y".to_string()),
-            ]),
-        ])];
-        assert_eq!(Parser::new(input).parse(), Ok(expected));
+    fn cons(car: Sexp, cdr: List) -> List {
+        List::Cons(Box::new(car), Box::new(cdr))
     }
+
+    fn id(s: &str) -> Sexp {
+        Sexp::Identifier(s.to_string())
+    }
+
+    // #[test]
+    // fn parse_expr() {
+    //     let input = "(lambda (x y) (cons x y))";
+    //     let expected = Sexp::List(cons(
+    //         Keyword(Lambda), // car
+    //         cons(
+    //             List(cons(id("x"), cons(id("y"), List::Nil))), // cadr
+    //             cons(cons(id("cons"), cons(id("x"), cons(id("y"), List::Nil))), List::Nil)
+    //         ),
+    //     ));
+
+    //     assert_eq!(Parser::new(input).parse(), Ok(vec![expected]));
+    // }
 
     #[test]
     fn parse_keywords() {
         let input = "(let ((x 0) (y 0))
             (lambda () `(cons ,x y)))";
-        let expected = vec![Expression::List(vec![
-            Keyword(Let),
-            List(vec![
-                List(vec![Identifier("x".to_string()), Integer(0)]),
-                List(vec![Identifier("y".to_string()), Integer(0)]),
-            ]),
-            List(vec![
-                Keyword(Lambda),
-                List(vec![]),
-                Keyword(Quasiquote),
-                List(vec![
-                    Identifier("cons".to_string()),
-                    Keyword(Unquote),
-                    Identifier("x".to_string()),
-                    Identifier("y".to_string()),
-                ]),
-            ]),
-        ])];
 
-        assert_eq!(Parser::new(input).parse(), Ok(expected));
+        let expected = List(cons(
+            Keyword(Let),
+            cons(
+                List(cons(
+                    List(cons(id("x"), cons(Integer(0), List::Nil))),
+                    cons(List(cons(id("y"), cons(Integer(0), List::Nil))), List::Nil),
+                )),
+                cons(
+                    List(cons(
+                        Keyword(Lambda),
+                        cons(
+                            List(List::Nil),
+                            cons(
+                                Keyword(Quasiquote),
+                                cons(
+                                    List(cons(
+                                        id("cons"),
+                                        cons(
+                                            Keyword(Unquote),
+                                            cons(id("x"), cons(id("y"), List::Nil)),
+                                        ),
+                                    )),
+                                    List::Nil,
+                                ),
+                            ),
+                        ),
+                    )),
+                    List::Nil,
+                ),
+            ),
+        ));
+
+        assert_eq!(Parser::new(input).parse(), Ok(vec![expected]));
     }
 }
