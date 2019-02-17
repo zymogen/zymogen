@@ -1,5 +1,5 @@
-pub mod compiler;
-pub mod syntax;
+use zymogen::*;
+
 use std::env;
 use std::fs;
 use std::io::{self, prelude::*};
@@ -56,7 +56,7 @@ fn main() -> io::Result<()> {
             print!("{}", (0..indent).map(|_| ' ').collect::<String>());
             io::stdout().flush()?;
         }
-        let tokens = match syntax::parse(&buffer.trim()) {
+        let sexprs = match syntax::parse(&buffer.trim()) {
             Ok(tokens) => tokens,
             Err(e) => {
                 eprint!("{}", e);
@@ -64,7 +64,12 @@ fn main() -> io::Result<()> {
             }
         };
 
-        println!("===> {:#?}", tokens);
+        let mut last = None;
+        for exp in sexprs {
+            last = Some(compiler::desugar(compiler::analyze(exp).unwrap()));
+        }
+
+        println!("===> {:#?}", last);
         buffer.clear();
     }
     Ok(())

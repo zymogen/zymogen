@@ -1,6 +1,5 @@
 use super::*;
-mod expr;
-pub use expr::{Keyword, List, Sexp};
+use std::collections::HashMap;
 
 pub struct Parser<'l> {
     lexer: Lexer<'l>,
@@ -41,6 +40,10 @@ impl<'l> Parser<'l> {
             match self.peek() {
                 Ok(token) => {
                     match &token.kind {
+                        TokenKind::Dot => {
+                            vec.push(Sexp::Keyword(Keyword::Dot));
+                            self.consume()?;
+                        }
                         TokenKind::RightParen => {
                             self.expect(TokenKind::RightParen)?;
                             break;
@@ -68,7 +71,7 @@ impl<'l> Parser<'l> {
     }
 
     fn to_keyword(ident: String) -> Result<Sexp, Error> {
-        use expr::Keyword::*;
+        use super::Keyword::*;
         use Sexp::*;
         let res = match ident.as_ref() {
             "quote" => Keyword(Quote),
@@ -136,9 +139,7 @@ impl<'l> Parser<'l> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use expr::Keyword::*;
-    use expr::List;
-    use Sexp::*;
+    use super::Keyword::*;
 
     fn cons(car: Sexp, cdr: List) -> List {
         List::Cons(Box::new(car), Box::new(cdr))
@@ -148,37 +149,23 @@ mod test {
         Sexp::Identifier(s.to_string())
     }
 
-    // #[test]
-    // fn parse_expr() {
-    //     let input = "(lambda (x y) (cons x y))";
-    //     let expected = Sexp::List(cons(
-    //         Keyword(Lambda), // car
-    //         cons(
-    //             List(cons(id("x"), cons(id("y"), List::Nil))), // cadr
-    //             cons(cons(id("cons"), cons(id("x"), cons(id("y"), List::Nil))), List::Nil)
-    //         ),
-    //     ));
-
-    //     assert_eq!(Parser::new(input).parse(), Ok(vec![expected]));
-    // }
-
     #[test]
     fn parse_keywords() {
         let input = "(let ((x 0) (y 0))
             (lambda () `(cons ,x y)))";
-
+        use super::Sexp::*;
         let expected = List(cons(
             Keyword(Let),
             cons(
                 List(cons(
-                    List(cons(id("x"), cons(Integer(0), List::Nil))),
-                    cons(List(cons(id("y"), cons(Integer(0), List::Nil))), List::Nil),
+                    List(cons(id("x"), cons(Integer(0), super::List::Nil))),
+                    cons(List(cons(id("y"), cons(Integer(0), super::List::Nil))), super::List::Nil),
                 )),
                 cons(
                     List(cons(
                         Keyword(Lambda),
                         cons(
-                            List(List::Nil),
+                            List(super::List::Nil),
                             cons(
                                 Keyword(Quasiquote),
                                 cons(
@@ -186,15 +173,15 @@ mod test {
                                         id("cons"),
                                         cons(
                                             Keyword(Unquote),
-                                            cons(id("x"), cons(id("y"), List::Nil)),
+                                            cons(id("x"), cons(id("y"), super::List::Nil)),
                                         ),
                                     )),
-                                    List::Nil,
+                                    super::List::Nil,
                                 ),
                             ),
                         ),
                     )),
-                    List::Nil,
+                    super::List::Nil,
                 ),
             ),
         ));

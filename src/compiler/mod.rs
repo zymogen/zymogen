@@ -1,6 +1,7 @@
 mod analysis;
 mod ir;
 
-use super::syntax::*;
+use super::*;
 pub use analysis::analyze;
+pub use analysis::desugar::desugar;
 pub use ir::hir;

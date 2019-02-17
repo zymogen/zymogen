@@ -2,13 +2,14 @@ mod error;
 mod lexer;
 mod parser;
 
+pub use parser::{Parser};
 pub use error::{Error, ErrorKind};
 pub use lexer::{
     token::{Token, TokenKind},
     Lexer,
 };
 
-pub use parser::{Keyword, List, Parser, Sexp};
+use super::*;
 
 pub fn lex<S: AsRef<str>>(s: S) -> Result<Vec<Token>, String> {
     match Lexer::new(s.as_ref()).lex() {
@@ -46,7 +47,7 @@ mod test {
             "List::into_iter()"
         );
         assert_eq!(
-            &expected.into_iter().collect::<parser::List>(),
+            &expected.into_iter().collect::<super::List>(),
             parsed,
             "List::from_iter()"
         );

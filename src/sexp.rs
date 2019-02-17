@@ -1,8 +1,10 @@
 use std::fmt;
 use std::iter::FromIterator;
 use std::iter::Iterator;
+use super::error::Error;
 
-#[derive(PartialEq, PartialOrd, Debug)]
+/// Primitive S-expression directly parsed
+#[derive(PartialEq, PartialOrd)]
 pub enum Sexp {
     Boolean(bool),
     Integer(i64),
@@ -12,7 +14,18 @@ pub enum Sexp {
     List(List),
 }
 
-#[derive(PartialEq, PartialOrd, Debug)]
+/// Primitive types of S-expressions
+#[derive(PartialEq, PartialOrd, Debug, Clone, Copy)]
+pub enum Ty {
+    Boolean,
+    Integer,
+    Identifier,
+    Literal,
+    Keyword,
+    List,
+}
+
+#[derive(PartialEq, PartialOrd)]
 pub enum List {
     Cons(Box<Sexp>, Box<List>),
     Nil,
@@ -38,27 +51,56 @@ pub enum Keyword {
     Define,
     Unquote,
     UnquoteAt,
+    /// `.` multiple arity
+    Dot,
 }
 
 impl Sexp {
-    pub fn as_ident(&self) -> Option<&String> {
+    pub fn as_ident(&self) -> Result<&String, Error> {
         match self {
-            Sexp::Identifier(s) => Some(s),
-            _ => None,
+            Sexp::Identifier(s) => Ok(s),
+            _ => Err(Error::WrongType(Ty::Identifier, self.ty())),
+        }
+    }
+    
+    pub fn ident(self) -> Result<String, Error> {
+        match self {
+            Sexp::Identifier(s) => Ok(s),
+            _ => Err(Error::WrongType(Ty::Identifier, self.ty())),
         }
     }
 
-    pub fn as_list(&self) -> Option<&List> {
+
+    pub fn as_list(&self) -> Result<&List, Error> {
         match self {
-            Sexp::List(list) => Some(list),
-            _ => None,
+            Sexp::List(list) => Ok(list),
+            _ => Err(Error::WrongType(Ty::Identifier, self.ty())),
         }
     }
 
-    pub fn as_keyword(&self) -> Option<Keyword> {
+    pub fn list(self) -> Result<List, Error> {
         match self {
-            Sexp::Keyword(kw) => Some(*kw),
-            _ => None,
+            Sexp::List(list) => Ok(list),
+            _ => Err(Error::WrongType(Ty::Identifier, self.ty()))
+        }
+    }
+
+
+    pub fn as_keyword(&self) -> Result<Keyword, Error> {
+        match self {
+            Sexp::Keyword(kw) => Ok(*kw),
+            _ => Err(Error::WrongType(Ty::Identifier, self.ty())),
+        }
+    }
+
+    pub fn ty(&self) -> Ty {
+        match self {
+            Sexp::List(_) => Ty::List,
+            Sexp::Boolean(_) => Ty::Boolean,
+            Sexp::Identifier(_) => Ty::Identifier,
+            Sexp::Integer(_) => Ty::Integer,
+            Sexp::Literal(_) => Ty::Literal,
+            Sexp::Keyword(_) => Ty::Keyword,
         }
     }
 }
@@ -97,6 +139,19 @@ impl fmt::Display for Sexp {
         }
     }
 }
+
+impl fmt::Debug for Sexp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+impl fmt::Debug for List {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
 
 
 /// A borrowing iterator over [`List`]
@@ -145,7 +200,7 @@ impl<'l> Iterator for ListIterator<'l> {
 impl Iterator for ListIntoIterator {
     type Item = Sexp;
     fn next(&mut self) -> Option<Self::Item> {
-        let (sexp, list) = self.ptr.take()?.unpack()?;
+        let (sexp, list) = self.ptr.take()?.unpack().ok()?;
         self.ptr = Some(list);
         Some(sexp)
     }
@@ -165,31 +220,48 @@ impl FromIterator<Sexp> for List {
 }
 
 impl List {
+    pub fn length(&self) -> usize {
+        self.iter().count()
+    }
+
+    /// Create a borrowed Iterator
     pub fn iter(&self) -> ListIterator<'_> {
         ListIterator { ptr: self }
     }
 
-    pub fn car(&self) -> Option<&Sexp> {
+    /// Try to access the head of the list
+    pub fn car(&self) -> Result<&Sexp, Error> {
         match self {
-            List::Cons(car, _) => Some(&*car),
-            List::Nil => None,
+            List::Cons(car, _) => Ok(&*car),
+            List::Nil => Err(Error::EmptyList)
         }
     }
 
-    pub fn cdr(&self) -> Option<&List> {
+    /// Try to access the tail of the list
+    /// 
+    /// Should this fail? We could just return List::Nil
+    pub fn cdr(&self) -> Result<&List, Error> {
         match self {
-            List::Cons(_, cdr) => Some(&*cdr),
-            List::Nil => None
+            List::Cons(_, cdr) => Ok(&*cdr),
+            List::Nil => Err(Error::EmptyList)
         }
     }
 
     /// Destructure an owned List into it's car and cdr
-    pub fn unpack(self) -> Option<(Sexp, List)> {
+    pub fn unpack(self) -> Result<(Sexp, List), Error> {
         match self {
-            List::Cons(car, cdr) => Some((*car, *cdr)),
-            List::Nil => None,
+            List::Cons(car, cdr) => Ok((*car, *cdr)),
+            List::Nil => Err(Error::EmptyList),
         }
     }
+
+    /// Destructure an owned list into car, cadr, cddr
+    pub fn unpack2(self) -> Result<(Sexp, Sexp, List), Error> {
+        let (car, cdr) = self.unpack()?;
+        let (cadr, cddr) = cdr.unpack()?;
+        Ok((car, cadr, cddr))
+    }
+
 }
 
 #[cfg(test)]
