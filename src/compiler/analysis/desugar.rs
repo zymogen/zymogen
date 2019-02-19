@@ -25,11 +25,9 @@ fn desugar_let(letexpr: LetExpr) -> PrimitiveExpr {
                 }))),
                 rands,
             })
-        },
-        LetExpr::NamedLet(name, bind, body) => {
-            unimplemented!()
-        },
-        LetExpr::LetRec(bind, body) => unimplemented!()
+        }
+        LetExpr::NamedLet(name, bind, body) => unimplemented!(),
+        LetExpr::LetRec(bind, body) => unimplemented!(),
     }
 }
 
@@ -39,7 +37,7 @@ fn desugar_let(letexpr: LetExpr) -> PrimitiveExpr {
 ///     exp1
 ///     exp2
 ///     exp3
-/// ) 
+/// )
 /// ===>
 /// ((lambda (x y z) z) exp1 exp2 exp3)
 fn desugar_begin(mut exprs: Sequence) -> PrimitiveExpr {
@@ -47,16 +45,20 @@ fn desugar_begin(mut exprs: Sequence) -> PrimitiveExpr {
         desugar(exprs.remove(0))
     } else {
         PrimitiveExpr::Call(CallExpr {
-            rator: Box::new(
-            Expression::Primitive(PrimitiveExpr::Lambda(LambdaExpr {
+            rator: Box::new(Expression::Primitive(PrimitiveExpr::Lambda(LambdaExpr {
                 args: (0..exprs.len()).map(|i| format!("$s{}", i)).collect(),
                 rest: None,
-                body: vec![Expression::Primitive(PrimitiveExpr::Variable(format!("$s{}", exprs.len() - 1)))],
+                body: vec![Expression::Primitive(PrimitiveExpr::Variable(format!(
+                    "$s{}",
+                    exprs.len() - 1
+                )))],
             }))),
-            rands: exprs.into_iter().map(|exp| Expression::Primitive(desugar(exp))).collect(),
+            rands: exprs
+                .into_iter()
+                .map(|exp| Expression::Primitive(desugar(exp)))
+                .collect(),
         })
     }
-
 }
 
 fn desugar_cond(mut expr: CondExpr) -> PrimitiveExpr {
@@ -64,7 +66,9 @@ fn desugar_cond(mut expr: CondExpr) -> PrimitiveExpr {
         let fst = expr.clauses.remove(0);
         PrimitiveExpr::If(IfExpr {
             test: Box::new(Expression::Primitive(desugar(*fst.test))),
-            csq: Box::new(Expression::Primitive(desugar(Expression::Derived(DerivedExpr::Begin(fst.body))))),
+            csq: Box::new(Expression::Primitive(desugar(Expression::Derived(
+                DerivedExpr::Begin(fst.body),
+            )))),
             alt: Some(Box::new(Expression::Primitive(desugar_cond(expr)))),
         })
     } else {
@@ -75,18 +79,19 @@ fn desugar_cond(mut expr: CondExpr) -> PrimitiveExpr {
                 _ => desugar(Expression::Derived(DerivedExpr::Begin(seq))),
             }
         } else {
-             PrimitiveExpr::Literal(Sexp::Boolean(false))
+            PrimitiveExpr::Literal(Sexp::Boolean(false))
         }
     }
 }
-
 
 fn desugar_and(mut body: Sequence) -> PrimitiveExpr {
     if !body.is_empty() {
         PrimitiveExpr::If(IfExpr {
             test: Box::new(Expression::Primitive(desugar(body.remove(0)))),
             csq: Box::new(Expression::Primitive(desugar_and(body))),
-            alt: Some(Box::new(Expression::Primitive(PrimitiveExpr::Literal(Sexp::Boolean(false))))),
+            alt: Some(Box::new(Expression::Primitive(PrimitiveExpr::Literal(
+                Sexp::Boolean(false),
+            )))),
         })
     } else {
         PrimitiveExpr::Literal(Sexp::Boolean(true))
@@ -94,10 +99,12 @@ fn desugar_and(mut body: Sequence) -> PrimitiveExpr {
 }
 
 fn desugar_or(mut body: Sequence) -> PrimitiveExpr {
-        if !body.is_empty() {
+    if !body.is_empty() {
         PrimitiveExpr::If(IfExpr {
             test: Box::new(Expression::Primitive(desugar(body.remove(0)))),
-            csq: Box::new(Expression::Primitive(PrimitiveExpr::Literal(Sexp::Boolean(true)))),
+            csq: Box::new(Expression::Primitive(PrimitiveExpr::Literal(
+                Sexp::Boolean(true),
+            ))),
             alt: Some(Box::new(Expression::Primitive(desugar_or(body)))),
         })
     } else {
@@ -109,25 +116,35 @@ fn desugar_lambda(lambda: LambdaExpr) -> PrimitiveExpr {
     PrimitiveExpr::Lambda(LambdaExpr {
         args: lambda.args,
         rest: lambda.rest,
-        body: lambda.body.into_iter().map(|exp| Expression::Primitive(desugar(exp))).collect(),
+        body: lambda
+            .body
+            .into_iter()
+            .map(|exp| Expression::Primitive(desugar(exp)))
+            .collect(),
     })
 }
 
-fn desugar_if(cond: IfExpr) -> PrimitiveExpr {    
+fn desugar_if(cond: IfExpr) -> PrimitiveExpr {
     PrimitiveExpr::If(IfExpr {
         test: Box::new(Expression::Primitive(desugar(*cond.test))),
         csq: Box::new(Expression::Primitive(desugar(*cond.csq))),
-        alt: cond.alt.map(|exp| Box::new(Expression::Primitive(desugar(*exp)))),
+        alt: cond
+            .alt
+            .map(|exp| Box::new(Expression::Primitive(desugar(*exp)))),
     })
 }
 
-fn desugar_call(call: CallExpr) -> PrimitiveExpr {    
+fn desugar_call(call: CallExpr) -> PrimitiveExpr {
     PrimitiveExpr::Call(CallExpr {
         rator: Box::new(Expression::Primitive(desugar(*call.rator))),
-        rands: call.rands.into_iter().map(|exp| Expression::Primitive(desugar(exp))).collect(),
+        rands: call
+            .rands
+            .into_iter()
+            .map(|exp| Expression::Primitive(desugar(exp)))
+            .collect(),
     })
 }
-fn desugar_assignment(expr: Assignment) -> PrimitiveExpr {    
+fn desugar_assignment(expr: Assignment) -> PrimitiveExpr {
     PrimitiveExpr::Assignment(Assignment {
         var: expr.var,
         exp: Box::new(Expression::Primitive(desugar(*expr.exp))),
@@ -142,7 +159,7 @@ pub fn desugar(expr: Expression) -> PrimitiveExpr {
             PrimitiveExpr::Call(expr) => desugar_call(expr),
             PrimitiveExpr::Assignment(expr) => desugar_assignment(expr),
             _ => inner,
-        }
+        },
         Derived(derived) => match derived {
             DerivedExpr::Let(expr) => desugar_let(expr),
             DerivedExpr::Begin(expr) => desugar_begin(expr),
@@ -150,6 +167,6 @@ pub fn desugar(expr: Expression) -> PrimitiveExpr {
             DerivedExpr::And(body) => desugar_and(body),
             DerivedExpr::Or(body) => desugar_or(body),
             DerivedExpr::Quasiquoted(depth, seq) => unimplemented!(),
-        }
+        },
     }
 }

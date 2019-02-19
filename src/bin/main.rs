@@ -32,7 +32,7 @@ fn main() -> io::Result<()> {
         for exp in sexprs {
             last = Some(compiler::desugar(compiler::analyze(exp).unwrap()));
         }
-         println!("===> {}", last.unwrap());
+        println!("===> {}", last.unwrap());
     }
 
     println!("REPL mode:");

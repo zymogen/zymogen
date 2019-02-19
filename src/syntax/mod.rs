@@ -2,12 +2,12 @@ mod error;
 mod lexer;
 mod parser;
 
-pub use parser::{Parser};
 pub use error::{Error, ErrorKind};
 pub use lexer::{
     token::{Token, TokenKind},
     Lexer,
 };
+pub use parser::Parser;
 
 use super::*;
 

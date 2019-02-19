@@ -1,7 +1,7 @@
+use super::error::Error;
 use std::fmt;
 use std::iter::FromIterator;
 use std::iter::Iterator;
-use super::error::Error;
 
 /// Primitive S-expression directly parsed
 #[derive(PartialEq, PartialOrd)]
@@ -62,14 +62,13 @@ impl Sexp {
             _ => Err(Error::WrongType(Ty::Identifier, self.ty())),
         }
     }
-    
+
     pub fn ident(self) -> Result<String, Error> {
         match self {
             Sexp::Identifier(s) => Ok(s),
             _ => Err(Error::WrongType(Ty::Identifier, self.ty())),
         }
     }
-
 
     pub fn as_list(&self) -> Result<&List, Error> {
         match self {
@@ -81,10 +80,9 @@ impl Sexp {
     pub fn list(self) -> Result<List, Error> {
         match self {
             Sexp::List(list) => Ok(list),
-            _ => Err(Error::WrongType(Ty::Identifier, self.ty()))
+            _ => Err(Error::WrongType(Ty::Identifier, self.ty())),
         }
     }
-
 
     pub fn as_keyword(&self) -> Result<Keyword, Error> {
         match self {
@@ -152,13 +150,10 @@ impl fmt::Debug for List {
     }
 }
 
-
-
 /// A borrowing iterator over [`List`]
 pub struct ListIterator<'l> {
     ptr: &'l List,
 }
-
 
 /// An owning iterator that destructively iterates over [`List`]
 /// returning the value at car
@@ -233,17 +228,17 @@ impl List {
     pub fn car(&self) -> Result<&Sexp, Error> {
         match self {
             List::Cons(car, _) => Ok(&*car),
-            List::Nil => Err(Error::EmptyList)
+            List::Nil => Err(Error::EmptyList),
         }
     }
 
     /// Try to access the tail of the list
-    /// 
+    ///
     /// Should this fail? We could just return List::Nil
     pub fn cdr(&self) -> Result<&List, Error> {
         match self {
             List::Cons(_, cdr) => Ok(&*cdr),
-            List::Nil => Err(Error::EmptyList)
+            List::Nil => Err(Error::EmptyList),
         }
     }
 
@@ -261,7 +256,6 @@ impl List {
         let (cadr, cddr) = cdr.unpack()?;
         Ok((car, cadr, cddr))
     }
-
 }
 
 #[cfg(test)]

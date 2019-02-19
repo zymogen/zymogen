@@ -1,5 +1,5 @@
 //! Definitions of the higher-intermediate-representation abstract syntax trees
-//! 
+//!
 //! These are directly parsed from the input, and in the transformation down to
 //! MIR, all derived expressions will be converted into primitive expressions
 //! and the AST will be simplified
@@ -97,9 +97,37 @@ impl fmt::Display for PrimitiveExpr {
             Literal(sexp) => write!(f, "{}", sexp),
             Variable(s) => write!(f, "{}", s),
             Quotation(sexp) => write!(f, "'{}", sexp),
-            Call(call) => write!(f, "({} {})", call.rator, call.rands.iter().map(|exp| format!("{}", exp)).collect::<Vec<String>>().join(" ")  ),
-            Lambda(lam) => write!(f, "(λ ({}) {})", lam.args.join(" "), lam.body.iter().map(|exp| format!("{}", exp)).collect::<Vec<String>>().join(" ") ),
-            If(expr) => write!(f, "(if {} {} {})", expr.test, expr.csq, expr.alt.as_ref().unwrap_or(&Box::new(Expression::Primitive(Literal(Sexp::Literal("void".to_string())))))),
+            Call(call) => write!(
+                f,
+                "({} {})",
+                call.rator,
+                call.rands
+                    .iter()
+                    .map(|exp| format!("{}", exp))
+                    .collect::<Vec<String>>()
+                    .join(" ")
+            ),
+            Lambda(lam) => write!(
+                f,
+                "(λ ({}) {})",
+                lam.args.join(" "),
+                lam.body
+                    .iter()
+                    .map(|exp| format!("{}", exp))
+                    .collect::<Vec<String>>()
+                    .join(" ")
+            ),
+            If(expr) => write!(
+                f,
+                "(if {} {} {})",
+                expr.test,
+                expr.csq,
+                expr.alt
+                    .as_ref()
+                    .unwrap_or(&Box::new(Expression::Primitive(Literal(Sexp::Literal(
+                        "void".to_string()
+                    )))))
+            ),
             Assignment(exp) => write!(f, "(set! {} {})", exp.var, exp.exp),
         }
     }
@@ -113,4 +141,3 @@ impl fmt::Display for Expression {
         }
     }
 }
-

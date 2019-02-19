@@ -101,18 +101,15 @@ impl<'l> Parser<'l> {
     fn parse_quote(&mut self, kw: Keyword) -> Option<Result<Sexp, Error>> {
         if let Some(exp) = self.parse_expr() {
             match exp {
-                Ok(exp) => Some(Ok(Sexp::List(
-                List::Cons( Box::new(Sexp::Keyword(kw)), 
-                            Box::new(List::Cons(
-                                Box::new(exp),
-                                Box::new(List::Nil))))))),
-                Err(e) => Some(Err(e))
+                Ok(exp) => Some(Ok(Sexp::List(List::Cons(
+                    Box::new(Sexp::Keyword(kw)),
+                    Box::new(List::Cons(Box::new(exp), Box::new(List::Nil))),
+                )))),
+                Err(e) => Some(Err(e)),
             }
-            
         } else {
             None
         }
-
     }
 
     /// Not a very ergonomic function, but we need a way to signal that
@@ -155,8 +152,8 @@ impl<'l> Parser<'l> {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use super::Keyword::*;
+    use super::*;
 
     fn cons(car: Sexp, cdr: List) -> List {
         List::Cons(Box::new(car), Box::new(cdr))
@@ -176,7 +173,10 @@ mod test {
             cons(
                 List(cons(
                     List(cons(id("x"), cons(Integer(0), super::List::Nil))),
-                    cons(List(cons(id("y"), cons(Integer(0), super::List::Nil))), super::List::Nil),
+                    cons(
+                        List(cons(id("y"), cons(Integer(0), super::List::Nil))),
+                        super::List::Nil,
+                    ),
                 )),
                 cons(
                     List(cons(
@@ -184,17 +184,23 @@ mod test {
                         cons(
                             List(super::List::Nil),
                             cons(
-                                Keyword(Quasiquote),
-                                cons(
-                                    List(cons(
-                                        id("cons"),
-                                        cons(
-                                            Keyword(Unquote),
-                                            cons(id("x"), cons(id("y"), super::List::Nil)),
-                                        ),
-                                    )),
-                                    super::List::Nil,
-                                ),
+                                List(cons(
+                                    Keyword(Quasiquote),
+                                    cons(
+                                        List(cons(
+                                            id("cons"),
+                                            cons(
+                                                List(cons(
+                                                    Keyword(Unquote),
+                                                    cons(id("x"), super::List::Nil),
+                                                )),
+                                                cons(id("y"), super::List::Nil),
+                                            ),
+                                        )),
+                                        super::List::Nil,
+                                    ),
+                                )),
+                                super::List::Nil,
                             ),
                         ),
                     )),

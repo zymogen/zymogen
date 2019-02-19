@@ -1,6 +1,6 @@
-use super::*;
-use super::sexp::Ty;
 use super::ir::hir::{self, Expression::*, *};
+use super::sexp::Ty;
+use super::*;
 pub mod desugar;
 
 fn analyze_lambda(exprs: List) -> Result<Expression, Error> {
@@ -10,7 +10,7 @@ fn analyze_lambda(exprs: List) -> Result<Expression, Error> {
     let mut rest = None;
 
     match args {
-        Sexp::List(List::Nil) => {},
+        Sexp::List(List::Nil) => {}
         Sexp::List(inner) => {
             let mut iter = inner.into_iter();
             loop {
@@ -18,18 +18,18 @@ fn analyze_lambda(exprs: List) -> Result<Expression, Error> {
                 match n {
                     Some(Sexp::Keyword(Keyword::Dot)) => {
                         rest = Some(iter.next().ok_or(Error::Arity)?.ident()?);
-                    },
+                    }
                     Some(Sexp::Identifier(s)) => {
                         params.push(s);
-                    },
+                    }
                     Some(exp) => return Err(Error::WrongType(Ty::Identifier, exp.ty())),
                     None => break,
                 }
             }
-        },
+        }
         Sexp::Identifier(rest_id) => {
             rest = Some(rest_id);
-        },
+        }
         _ => return Err(Error::WrongType(Ty::Identifier, args.ty())),
     }
     Ok(Expression::Primitive(PrimitiveExpr::Lambda(LambdaExpr {
@@ -40,34 +40,39 @@ fn analyze_lambda(exprs: List) -> Result<Expression, Error> {
 }
 
 fn analyze_let_bindings(bindings: List) -> Vec<LetBindings> {
-    bindings.into_iter().filter_map(|bind| {
-        match bind{
+    bindings
+        .into_iter()
+        .filter_map(|bind| match bind {
             Sexp::List(List::Nil) => None,
             Sexp::List(l) => {
                 let (car, cadr, _) = l.unpack2().ok()?;
                 Some(LetBindings {
                     var: car.ident().ok()?,
                     expr: analyze(cadr).ok()?,
-                })                
+                })
             }
-            _ => None
-        }}).collect()
+            _ => None,
+        })
+        .collect()
 }
 
 fn analyze_let(exprs: List) -> Result<Expression, Error> {
     let (bindings, body) = exprs.unpack()?;
     let bind = analyze_let_bindings(bindings.list()?);
     let body = analyze_sequence(body)?;
-    Ok(Expression::Derived(DerivedExpr::Let(LetExpr::Let(bind, body))))
+    Ok(Expression::Derived(DerivedExpr::Let(LetExpr::Let(
+        bind, body,
+    ))))
 }
-
 
 fn analyze_letrec(exprs: List) -> Result<Expression, Error> {
     let (name, bindings, body) = exprs.unpack2()?;
     let name = name.ident()?;
     let bind = analyze_let_bindings(bindings.list()?);
     let body = analyze_sequence(body)?;
-    Ok(Expression::Derived(DerivedExpr::Let(LetExpr::NamedLet(name, bind, body))))
+    Ok(Expression::Derived(DerivedExpr::Let(LetExpr::NamedLet(
+        name, bind, body,
+    ))))
 }
 
 fn analyze_call(func: Expression, rest: List) -> Result<Expression, Error> {
@@ -84,10 +89,12 @@ fn analyze_if(rest: List) -> Result<Expression, Error> {
     let csq = Box::new(analyze(csq)?);
     let alt = match alt.unpack() {
         Ok((sexp, _)) => Some(Box::new(analyze(sexp)?)),
-        Err(_) => None
+        Err(_) => None,
     };
     Ok(Expression::Primitive(PrimitiveExpr::If(IfExpr {
-        test, csq, alt
+        test,
+        csq,
+        alt,
     })))
 }
 
@@ -106,13 +113,12 @@ fn analyze_cond(rest: List) -> Result<Expression, Error> {
                 Sexp::Keyword(Keyword::Else) => {
                     else_clause = Some(analyze_sequence(body)?);
                     break;
-                },
+                }
                 _ => clauses.push(CondClause {
                     test: Box::new(analyze(test)?),
                     body: analyze_sequence(body)?,
                 }),
             }
-            
         } else {
             break;
         }
@@ -127,24 +133,29 @@ fn analyze_cond(rest: List) -> Result<Expression, Error> {
 
 fn analyze_assignment(exprs: List) -> Result<Expression, Error> {
     let (var, exp, _) = exprs.unpack2()?;
-    Ok(Expression::Primitive(PrimitiveExpr::Assignment(Assignment{ var: var.ident()?, exp: Box::new(analyze(exp)?)})))
+    Ok(Expression::Primitive(PrimitiveExpr::Assignment(
+        Assignment {
+            var: var.ident()?,
+            exp: Box::new(analyze(exp)?),
+        },
+    )))
 }
 
 fn analyze_quasiquote(depth: u32, exprs: List) -> Result<Expression, Error> {
     // let (car, cdr) = exprs.unpack()?;
     // let mut vec = Vec::new();
 
-    // match car { 
+    // match car {
     //     Sexp::List(List::Cons(caar, cdar)) => {
     //         match &*caar {
     //             Sexp::Keyword(Keyword::Unquote) => {
     //                 if depth == 1{
     //                     vec.extend(analyze_sequence(*cdar)?);
     //                 } else {
-    //                     vec.push(analyze_quasiquote(depth - 1, *cdar)?);                        
-    //                 }                    
+    //                     vec.push(analyze_quasiquote(depth - 1, *cdar)?);
+    //                 }
     //             }
-    //             Sexp::Keyword(Keyword::UnquoteAt) => vec.push(analyze_quasiquote(depth - 1, *cdar)?),  
+    //             Sexp::Keyword(Keyword::UnquoteAt) => vec.push(analyze_quasiquote(depth - 1, *cdar)?),
     //             Sexp::Keyword(Keyword::Quasiquote) => vec.push(analyze_quasiquote(depth + 1, *cdar)?),
     //             _ => {
     //                 vec.push(analyze(*caar)?);
@@ -165,25 +176,32 @@ fn analyze_list(exprs: List) -> Result<Expression, Error> {
     let (car, cdr) = exprs.unpack()?;
     let f = analyze(car)?;
     match f {
-        Primitive(PrimitiveExpr::Literal(sexp)) => {
-            match sexp {
-                Sexp::Keyword(Keyword::Lambda) => analyze_lambda(cdr),
-                Sexp::Keyword(Keyword::Let) | Sexp::Keyword(Keyword::Letstar) => analyze_let(cdr),
-                Sexp::Keyword(Keyword::Letrec) => analyze_letrec(cdr),                
-                Sexp::Keyword(Keyword::Begin) => Ok(Expression::Derived(DerivedExpr::Begin(analyze_sequence(cdr)?))),
-                Sexp::Keyword(Keyword::If) => analyze_if(cdr),
-                Sexp::Keyword(Keyword::Cond) => analyze_cond(cdr),
-                Sexp::Keyword(Keyword::Define) | Sexp::Keyword(Keyword::Set) => analyze_assignment(cdr),
-                Sexp::Keyword(Keyword::And) => Ok(Expression::Derived(DerivedExpr::And(analyze_sequence(cdr)?))),
-                Sexp::Keyword(Keyword::Or) => Ok(Expression::Derived(DerivedExpr::Or(analyze_sequence(cdr)?))),
-                Sexp::Keyword(Keyword::Quote) => Ok(Expression::Primitive(PrimitiveExpr::Quotation(cdr.unpack()?.0))),
-                Sexp::Keyword(Keyword::Quasiquote) => analyze_quasiquote(1, cdr),
-                Sexp::Identifier(func) => analyze_call(Primitive(PrimitiveExpr::Variable(func)), cdr),
-                _ => panic!("Invalid start of list {}", sexp),
+        Primitive(PrimitiveExpr::Literal(sexp)) => match sexp {
+            Sexp::Keyword(Keyword::Lambda) => analyze_lambda(cdr),
+            Sexp::Keyword(Keyword::Let) | Sexp::Keyword(Keyword::Letstar) => analyze_let(cdr),
+            Sexp::Keyword(Keyword::Letrec) => analyze_letrec(cdr),
+            Sexp::Keyword(Keyword::Begin) => Ok(Expression::Derived(DerivedExpr::Begin(
+                analyze_sequence(cdr)?,
+            ))),
+            Sexp::Keyword(Keyword::If) => analyze_if(cdr),
+            Sexp::Keyword(Keyword::Cond) => analyze_cond(cdr),
+            Sexp::Keyword(Keyword::Define) | Sexp::Keyword(Keyword::Set) => analyze_assignment(cdr),
+            Sexp::Keyword(Keyword::And) => Ok(Expression::Derived(DerivedExpr::And(
+                analyze_sequence(cdr)?,
+            ))),
+            Sexp::Keyword(Keyword::Or) => {
+                Ok(Expression::Derived(DerivedExpr::Or(analyze_sequence(cdr)?)))
             }
+            Sexp::Keyword(Keyword::Quote) => Ok(Expression::Primitive(PrimitiveExpr::Quotation(
+                cdr.unpack()?.0,
+            ))),
+            Sexp::Keyword(Keyword::Quasiquote) => analyze_quasiquote(1, cdr),
+            Sexp::Identifier(func) => analyze_call(Primitive(PrimitiveExpr::Variable(func)), cdr),
+            _ => panic!("Invalid start of list {}", sexp),
         },
-        Primitive(PrimitiveExpr::Lambda(_)) 
-            | Primitive(PrimitiveExpr::Call(_))  => analyze_call(f, cdr),
+        Primitive(PrimitiveExpr::Lambda(_)) | Primitive(PrimitiveExpr::Call(_)) => {
+            analyze_call(f, cdr)
+        }
         Primitive(PrimitiveExpr::Variable(_)) => analyze_call(f, cdr),
         _ => panic!("Invalid expr! {:?}", f),
     }
@@ -191,14 +209,18 @@ fn analyze_list(exprs: List) -> Result<Expression, Error> {
 
 #[inline]
 fn analyze_sequence(exprs: List) -> Result<Sequence, Error> {
-    exprs.into_iter().map(analyze).collect::<Result<Vec<Expression>, Error>>()
+    exprs
+        .into_iter()
+        .map(analyze)
+        .collect::<Result<Vec<Expression>, Error>>()
 }
-
 
 #[inline]
 pub fn analyze(expr: Sexp) -> Result<Expression, Error> {
     match expr {
-        Sexp::Boolean(_) | Sexp::Integer(_) | Sexp::Literal(_) | Sexp::Keyword(_) => Ok(Primitive(PrimitiveExpr::Literal(expr))),
+        Sexp::Boolean(_) | Sexp::Integer(_) | Sexp::Literal(_) | Sexp::Keyword(_) => {
+            Ok(Primitive(PrimitiveExpr::Literal(expr)))
+        }
         Sexp::Identifier(s) => Ok(Primitive(PrimitiveExpr::Variable(s))),
         Sexp::List(list) => analyze_list(list),
     }
