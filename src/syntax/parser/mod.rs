@@ -98,6 +98,23 @@ impl<'l> Parser<'l> {
         Ok(res)
     }
 
+    fn parse_quote(&mut self, kw: Keyword) -> Option<Result<Sexp, Error>> {
+        if let Some(exp) = self.parse_expr() {
+            match exp {
+                Ok(exp) => Some(Ok(Sexp::List(
+                List::Cons( Box::new(Sexp::Keyword(kw)), 
+                            Box::new(List::Cons(
+                                Box::new(exp),
+                                Box::new(List::Nil))))))),
+                Err(e) => Some(Err(e))
+            }
+            
+        } else {
+            None
+        }
+
+    }
+
     /// Not a very ergonomic function, but we need a way to signal that
     /// we have reached the end of input in a successful manner, i.e. Some(Ok(_))
     ///
@@ -113,10 +130,10 @@ impl<'l> Parser<'l> {
         let expr = match token.kind {
             LeftParen => self.parse_list(),
             RightParen => Err(Error::from_token(&token, ErrorKind::Unbalanced)),
-            Quote => Ok(Sexp::Keyword(Keyword::Quote)),
-            Quasiquote => Ok(Sexp::Keyword(Keyword::Quasiquote)),
-            Unquote => Ok(Sexp::Keyword(Keyword::Unquote)),
-            UnquoteAt => Ok(Sexp::Keyword(Keyword::UnquoteAt)),
+            Quote => self.parse_quote(Keyword::Quote)?,
+            Quasiquote => self.parse_quote(Keyword::Quasiquote)?,
+            Unquote => self.parse_quote(Keyword::Unquote)?,
+            UnquoteAt => self.parse_quote(Keyword::UnquoteAt)?,
             Dot => Err(Error::from_token(&token, ErrorKind::Unbalanced)),
             Boolean(b) => Ok(Sexp::Boolean(b)),
             Integer(i) => Ok(Sexp::Integer(i)),

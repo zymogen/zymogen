@@ -21,13 +21,18 @@ fn main() -> io::Result<()> {
     }
     println!("zymogen interpreter");
     for s in inputs {
-        let tokens = match syntax::parse(&s.trim()) {
+        let sexprs = match syntax::parse(&s.trim()) {
             Ok(tokens) => tokens,
             Err(e) => {
                 eprintln!("{}", e);
                 return Ok(());
             }
         };
+        let mut last = None;
+        for exp in sexprs {
+            last = Some(compiler::desugar(compiler::analyze(exp).unwrap()));
+        }
+         println!("===> {}", last.unwrap());
     }
 
     println!("REPL mode:");
@@ -69,7 +74,7 @@ fn main() -> io::Result<()> {
             last = Some(compiler::desugar(compiler::analyze(exp).unwrap()));
         }
 
-        println!("===> {:#?}", last);
+        println!("===> {}", last.unwrap());
         buffer.clear();
     }
     Ok(())

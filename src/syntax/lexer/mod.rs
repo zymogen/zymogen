@@ -158,6 +158,7 @@ impl<'s> Lexer<'s> {
                 }
                 '.' => self.advance(TokenKind::Dot),
                 '"' => self.read_literal(),
+                'λ' => self.advance(TokenKind::Identifier("lambda".to_string())),
                 x if x.is_numeric() => self.read_number(),
                 x if is_identifier_char(x) => self.read_identifier(),
                 _ => self.error(ErrorKind::Invalid(ch)),
