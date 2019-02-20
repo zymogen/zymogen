@@ -5,7 +5,7 @@ use std::fs;
 use std::io::{self, prelude::*};
 
 fn display_usage() {
-    let usage = "zymogen";
+    let _usage = "zymogen";
 }
 
 fn main() -> io::Result<()> {
@@ -32,7 +32,7 @@ fn main() -> io::Result<()> {
         for exp in sexprs {
             last = Some(compiler::desugar(compiler::analyze(exp).unwrap()));
         }
-        println!("===> {}", last.unwrap());
+        println!("===> {:?}", last.unwrap());
     }
 
     println!("REPL mode:");
@@ -71,10 +71,10 @@ fn main() -> io::Result<()> {
 
         let mut last = None;
         for exp in sexprs {
-            last = Some(compiler::lower_exp(compiler::desugar(compiler::analyze(exp).unwrap())));
+            last = Some(compiler::desugar(compiler::analyze(exp).unwrap()));
         }
 
-        println!("===> {}", last.unwrap());
+        println!("===> {:?}", last.unwrap());
         buffer.clear();
     }
     Ok(())

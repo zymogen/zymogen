@@ -107,17 +107,12 @@ impl fmt::Display for List {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "(")?;
         let mut ptr = self;
-        loop {
-            match ptr {
-                List::Cons(car, cdr) => {
-                    match cdr.as_ref() {
-                        List::Nil => write!(f, "{}", car)?,
-                        List::Cons(_, _) => write!(f, "{} ", car)?,
-                    }
-                    ptr = cdr.as_ref();
-                }
-                List::Nil => break,
+        while let List::Cons(car, cdr) = ptr {
+            match cdr.as_ref() {
+                List::Nil => write!(f, "{}", car)?,
+                List::Cons(_, _) => write!(f, "{} ", car)?,
             }
+            ptr = cdr.as_ref();
         }
         write!(f, ")")
     }

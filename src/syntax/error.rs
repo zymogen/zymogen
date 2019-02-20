@@ -19,12 +19,12 @@ pub struct Error {
 impl Error {
     pub fn message<S: AsRef<str>>(&self, source: S) -> String {
         let msg = match &self.kind {
-            ErrorKind::EOF => format!("unexpected end-of-file!"),
+            ErrorKind::EOF => String::from("unexpected end-of-file!"),
             ErrorKind::Invalid(ch) => format!("invalid character in input `{}`!", ch),
             ErrorKind::ExpectedToken(exp, got) => {
                 format!("expected TokenKind `{:?}`, found `{:?}!`", exp, got)
             }
-            ErrorKind::Unbalanced => format!("unbalanced expression!"),
+            ErrorKind::Unbalanced => String::from("unbalanced expression!"),
         };
 
         let mut output = format!("\nError at line {} char {}\n", self.line, self.pos)
@@ -39,10 +39,7 @@ impl Error {
         {
             output.push_str(&format!("{:>4}|    {}\n", ln, line));
             if ln == self.line as usize {
-                output.push_str(&format!(
-                    "{}",
-                    (0..9 + self.pos).map(|_| ' ').collect::<String>()
-                ));
+                output.push_str(&(0..9 + self.pos).map(|_| ' ').collect::<String>());
                 output.push_str(&format!("^~~~ {}\n", msg).red().to_string());
             }
         }

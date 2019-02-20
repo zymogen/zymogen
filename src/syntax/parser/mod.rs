@@ -1,5 +1,4 @@
 use super::*;
-use std::collections::HashMap;
 
 pub struct Parser<'l> {
     lexer: Lexer<'l>,
@@ -70,7 +69,7 @@ impl<'l> Parser<'l> {
         Ok(Sexp::List(list))
     }
 
-    fn to_keyword(ident: String) -> Result<Sexp, Error> {
+    fn keyword(ident: String) -> Result<Sexp, Error> {
         use super::Keyword::*;
         use Sexp::*;
         let res = match ident.as_ref() {
@@ -113,7 +112,8 @@ impl<'l> Parser<'l> {
     }
 
     /// Not a very ergonomic function, but we need a way to signal that
-    /// we have reached the end of input in a successful manner, i.e. Some(Ok(_))
+    /// we have reached the end of input in a successful manner, i.e.
+    /// Some(Ok(_))
     ///
     /// TODO: Look into refactoring the parse module to just call syntax::lex()
     /// and operate on a vec of tokens, instead of lexing on demand
@@ -135,13 +135,14 @@ impl<'l> Parser<'l> {
             Boolean(b) => Ok(Sexp::Boolean(b)),
             Integer(i) => Ok(Sexp::Integer(i)),
             Literal(s) => Ok(Sexp::Literal(s)),
-            Identifier(s) => Parser::to_keyword(s),
+            Identifier(s) => Parser::keyword(s),
             EOF => return None,
         };
         Some(expr)
     }
 
-    /// Consume a [`Parser`], returning a list of [`Expression`]'s, or an [`Error`]
+    /// Consume a [`Parser`], returning a list of [`Expression`]'s, or an
+    /// [`Error`]
     pub fn parse(mut self) -> Result<Vec<Sexp>, Error> {
         std::iter::repeat_with(|| self.parse_expr())
             .take_while(Option::is_some)
