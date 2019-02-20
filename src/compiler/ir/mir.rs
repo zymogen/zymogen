@@ -42,8 +42,14 @@ impl fmt::Display for Expr {
             Expr::Var(s) => write!(f, "{}", s),
             Expr::Lambda(var, exp) => write!(f, "(λ ({}) {})", var, exp),
             Expr::App(rator, rand) => write!(f, "({} {})", rator, rand),
-            Expr::If(test, csq, alt) => write!(f, "(if {} {} {})", test, csq, alt.as_ref()
-                    .unwrap_or(&Box::new(Expr::Val(Value::Str(String::from("void")))))),
+            Expr::If(test, csq, alt) => write!(
+                f,
+                "(if {} {} {})",
+                test,
+                csq,
+                alt.as_ref()
+                    .unwrap_or(&Box::new(Expr::Val(Value::Str(String::from("void")))))
+            ),
             Expr::Set(var, exp) => write!(f, "(set! {} {})", var, exp),
             Expr::Quote(exp) => write!(f, "'{}", exp),
         }
