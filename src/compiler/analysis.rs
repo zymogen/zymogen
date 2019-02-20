@@ -1,5 +1,5 @@
 //! Analysis and transfrom from raw Sexps to the HIR abstract syntax tree
-use super::ir::hir::{*, Expression::*};
+use super::ir::hir::{Expression::*, *};
 use super::sexp::Ty;
 use super::*;
 
@@ -80,7 +80,8 @@ fn analyze_namedlet(exprs: List) -> Result<Expression, Error> {
     let (name, bindings, body) = exprs.unpack2()?;
     let name = name.ident()?;
     let bind = analyze_let_bindings(bindings.list()?);
-    let body = analyze_sequence(body)?;
+    let body = analyze_sequence(body)?;    
+    
     Ok(Expression::Let(LetExpr::NamedLet(name, bind, body)))
 }
 

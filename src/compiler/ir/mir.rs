@@ -8,7 +8,6 @@ pub enum Value {
     Int(i64),
 }
 
-
 #[derive(Debug, PartialEq, PartialOrd)]
 pub enum Expr {
     Var(String),
@@ -18,7 +17,7 @@ pub enum Expr {
     /// Let form with one variable binding and a body to mirror A-normal form
     Let(String, Box<Expr>, Box<Expr>),
     /// Lambda form required variables, optional rest arg and body
-    Lambda(Vec<String>, Option<String>, Vec<Expr>),
+    Lambda(Vec<String>, Option<String>, Box<Expr>),
     /// Function application with arguments
     App(Box<Expr>, Vec<Expr>),
     /// If expression
@@ -45,16 +44,21 @@ impl fmt::Display for Expr {
             Expr::Val(v) => write!(f, "{}", v),
             Expr::Var(s) => write!(f, "{}", s),
             Expr::Let(var, val, body) => write!(f, "(let (({} {})) {})", var, val, body),
-            Expr::Lambda(var, rest, body) => write!(f, "(λ ({}) {})", var.join(" "), body.into_iter().map(|e| format!("{}", e)).collect::<Vec<String>>().join(" ")),
-            Expr::App(rator, rand) => write!(f, "({} {})", rator, rand.into_iter().map(|e| format!("{}", e)).collect::<Vec<String>>().join(" ")),
-            Expr::If(test, csq, alt) => write!(
+            Expr::Lambda(var, None, body) => write!(f, "(λ ({}) {})", var.join(" "), body),
+            Expr::Lambda(var, Some(rest), body) => {
+                write!(f, "(λ ({} . {}) {})", var.join(" "), rest, body)
+            }
+            Expr::App(rator, rand) => write!(
                 f,
-                "(if {} {} {})",
-                test,
-                csq,
-                alt.as_ref()
-                    .unwrap_or(&Box::new(Expr::Val(Value::Str(String::from("void")))))
+                "({} {})",
+                rator,
+                rand.into_iter()
+                    .map(|e| format!("{}", e))
+                    .collect::<Vec<String>>()
+                    .join(" ")
             ),
+            Expr::If(test, csq, None) => write!(f, "(if {} {})", test, csq),
+            Expr::If(test, csq, Some(alt)) => write!(f, "(if {} {} {})", test, csq, alt),
             Expr::Set(var, exp) => write!(f, "(set! {} {})", var, exp),
             Expr::Quote(exp) => write!(f, "'{}", exp),
         }

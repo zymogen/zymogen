@@ -76,7 +76,7 @@ impl<'l> Parser<'l> {
             "quote" => Keyword(Quote),
             "lambda" => Keyword(Lambda),
             "if" => Keyword(If),
-            "set" => Keyword(Set),
+            "set!" => Keyword(Set),
             "begin" => Keyword(Begin),
             "cond" => Keyword(Cond),
             "and" => Keyword(And),

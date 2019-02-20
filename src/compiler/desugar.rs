@@ -1,18 +1,23 @@
-//! Desugaring of HIR to MIR. MIR will then be the input language for A-normalization
+//! Transform and desugaring of HIR to MIR.
 
 use super::hir::*;
 use super::mir::{Expr, Value};
 use super::*;
 
-fn desugar_bindings(mut args: Vec<String>, mut vals: Vec<Expr>, body: Expr, depth: u32) -> Expr {
+/// Helper function to recursively generate nested let expressions
+fn desugar_bindings(mut args: Vec<String>, mut vals: Vec<Expr>, body: Expr) -> Expr {
     if args.is_empty() {
         body
     } else {
-        Expr::Let(args.remove(0), Box::new(vals.remove(0)), Box::new(desugar_bindings(args, vals, body, depth + 1)))
+        Expr::Let(
+            args.remove(0),
+            Box::new(vals.remove(0)),
+            Box::new(desugar_bindings(args, vals, body)),
+        )
     }
 }
 
-/// Desugar a let expression with multiple bindings into 
+/// Desugar a let expression with multiple bindings into
 /// nested let expressions
 /// ```skip
 /// (let ((x 0)
@@ -23,6 +28,7 @@ fn desugar_bindings(mut args: Vec<String>, mut vals: Vec<Expr>, body: Expr, dept
 fn desugar_let(letexpr: LetExpr) -> Expr {
     match letexpr {
         LetExpr::Let(bind, body) => {
+            // Destructure bindings into lists of arguments and values
             let mut args = Vec::new();
             let mut rands = Vec::new();
             bind.into_iter().for_each(|bind| {
@@ -30,20 +36,54 @@ fn desugar_let(letexpr: LetExpr) -> Expr {
                 rands.push(bind.expr);
             });
 
-            desugar_bindings(args, rands.into_iter().map(desugar).collect(), desugar_begin(body), 0)
+            desugar_bindings(
+                args,
+                rands.into_iter().map(desugar).collect(),
+                desugar_begin(body),
+            )
         }
-        LetExpr::NamedLet(_name, _bind, _body) => unimplemented!(),
+        LetExpr::NamedLet(name, bind, body) => {
+            let mut args = Vec::new();
+            let mut rands = Vec::new();
+            bind.into_iter().for_each(|bind| {
+                args.push(bind.var);
+                rands.push(bind.expr);
+            });
+
+            let nbinds = LetBindings {
+                var: name.clone(),
+                expr: Expression::Lambda(LambdaExpr {
+                    args,
+                    rest: None,
+                    body,
+                })
+            };
+
+            let body = Expression::Call(Box::new(Expression::Variable(name)), rands);
+            
+            desugar_let(LetExpr::LetRec(vec![nbinds], vec![body]))
+            // let expr = desugar_bindings(
+            //     args,
+            //     rands.into_iter().map(desugar).collect(),
+            //     desugar_begin(body),
+            // );
+            // Expr::Set(name, Box::new(expr))
+        }
         LetExpr::LetRec(bind, body) => {
             let mut args = Vec::new();
-            let rands = (0..bind.len()).map(|_| Expr::Val(Value::Bool(false))).collect();
-            let mut expanded = bind.into_iter().map(|bind| {
-                args.push(bind.var.clone());
-                Expression::Assignment(bind.var, Box::new(bind.expr))
-            }).collect::<Vec<Expression>>();
+            let rands = (0..bind.len())
+                .map(|_| Expr::Val(Value::Bool(false)))
+                .collect();
+            let mut expanded = bind
+                .into_iter()
+                .map(|bind| {
+                    args.push(bind.var.clone());
+                    Expression::Assignment(bind.var, Box::new(bind.expr))
+                })
+                .collect::<Vec<Expression>>();
 
             expanded.extend(body);
-            println!("{:?} {:?}", args, rands);
-            desugar_bindings(args, rands, desugar_begin(expanded), 0)
+            desugar_bindings(args, rands, desugar_begin(expanded))
         }
     }
 }
@@ -64,10 +104,11 @@ fn desugar_begin(mut exprs: Sequence) -> Expr {
         let mut exprs = exprs.into_iter().map(desugar).collect::<Vec<Expr>>();
         let body = exprs.pop().unwrap();
         let vars = (0..exprs.len()).map(|i| format!("~s{}", i)).collect();
-        desugar_bindings(vars, exprs, body, 0)
+        desugar_bindings(vars, exprs, body)
     }
 }
 
+/// Desugar a `cond` expression into nested `if` statements
 fn desugar_cond(mut clauses: Vec<CondClause>, else_clause: Option<Sequence>) -> Expr {
     if !clauses.is_empty() {
         let fst = clauses.remove(0);
@@ -87,6 +128,7 @@ fn desugar_cond(mut clauses: Vec<CondClause>, else_clause: Option<Sequence>) -> 
     }
 }
 
+/// Desugar an `and` expression into nested `if` statements
 fn desugar_and(mut body: Sequence) -> Expr {
     if !body.is_empty() {
         Expr::If(
@@ -99,6 +141,7 @@ fn desugar_and(mut body: Sequence) -> Expr {
     }
 }
 
+/// Desugar an `or` expression into nested `if` statements
 fn desugar_or(mut body: Sequence) -> Expr {
     if !body.is_empty() {
         Expr::If(
@@ -111,11 +154,13 @@ fn desugar_or(mut body: Sequence) -> Expr {
     }
 }
 
+/// Desugar lambda body. If the body is a sequence of expressions > 1,
+/// then the expressions in the body will be desugared into nested let statements
 fn desugar_lambda(lambda: LambdaExpr) -> Expr {
     Expr::Lambda(
         lambda.args,
         lambda.rest,
-        vec![desugar_begin(lambda.body)],
+        Box::new(desugar_begin(lambda.body)),
     )
 }
 
@@ -127,7 +172,7 @@ fn desugar_if(test: Expression, csq: Expression, alt: Option<Box<Expression>>) -
     )
 }
 
-fn desugar_call(rator: Expression, rands: Sequence) -> Expr {
+fn desugar_app(rator: Expression, rands: Sequence) -> Expr {
     Expr::App(
         Box::new(desugar(rator)),
         rands.into_iter().map(desugar).collect(),
@@ -141,7 +186,7 @@ pub fn desugar(expr: Expression) -> Expr {
     match expr {
         Expression::If(test, csq, alt) => desugar_if(*test, *csq, alt),
         Expression::Lambda(expr) => desugar_lambda(expr),
-        Expression::Call(rator, rands) => desugar_call(*rator, rands),
+        Expression::Call(rator, rands) => desugar_app(*rator, rands),
         Expression::Assignment(var, val) => desugar_assignment(var, *val),
         Expression::Let(expr) => desugar_let(expr),
         Expression::Begin(expr) => desugar_begin(expr),
