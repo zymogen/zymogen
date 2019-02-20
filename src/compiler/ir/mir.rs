@@ -8,15 +8,19 @@ pub enum Value {
     Int(i64),
 }
 
+
 #[derive(Debug, PartialEq, PartialOrd)]
 pub enum Expr {
     Var(String),
     /// Value
     Val(Value),
-    /// Lambda form with one variable binding and a body
-    Lambda(String, Box<Expr>),
+
+    /// Let form with one variable binding and a body to mirror A-normal form
+    Let(String, Box<Expr>, Box<Expr>),
+    /// Lambda form required variables, optional rest arg and body
+    Lambda(Vec<String>, Option<String>, Vec<Expr>),
     /// Function application with arguments
-    App(Box<Expr>, Box<Expr>),
+    App(Box<Expr>, Vec<Expr>),
     /// If expression
     If(Box<Expr>, Box<Expr>, Option<Box<Expr>>),
 
@@ -40,8 +44,9 @@ impl fmt::Display for Expr {
         match self {
             Expr::Val(v) => write!(f, "{}", v),
             Expr::Var(s) => write!(f, "{}", s),
-            Expr::Lambda(var, exp) => write!(f, "(λ ({}) {})", var, exp),
-            Expr::App(rator, rand) => write!(f, "({} {})", rator, rand),
+            Expr::Let(var, val, body) => write!(f, "(let (({} {})) {})", var, val, body),
+            Expr::Lambda(var, rest, body) => write!(f, "(λ ({}) {})", var.join(" "), body.into_iter().map(|e| format!("{}", e)).collect::<Vec<String>>().join(" ")),
+            Expr::App(rator, rand) => write!(f, "({} {})", rator, rand.into_iter().map(|e| format!("{}", e)).collect::<Vec<String>>().join(" ")),
             Expr::If(test, csq, alt) => write!(
                 f,
                 "(if {} {} {})",

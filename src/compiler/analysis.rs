@@ -1,4 +1,5 @@
-use super::ir::hir::{Expression::*, *};
+//! Analysis and transfrom from raw Sexps to the HIR abstract syntax tree
+use super::ir::hir::{*, Expression::*};
 use super::sexp::Ty;
 use super::*;
 
@@ -56,6 +57,9 @@ fn analyze_let_bindings(bindings: List) -> Vec<LetBindings> {
 }
 
 fn analyze_let(exprs: List) -> Result<Expression, Error> {
+    if let &Sexp::Identifier(_) = exprs.car()? {
+        return analyze_namedlet(exprs);
+    }
     let (bindings, body) = exprs.unpack()?;
     let bind = analyze_let_bindings(bindings.list()?);
     let body = analyze_sequence(body)?;
@@ -63,6 +67,16 @@ fn analyze_let(exprs: List) -> Result<Expression, Error> {
 }
 
 fn analyze_letrec(exprs: List) -> Result<Expression, Error> {
+    if let &Sexp::Identifier(_) = exprs.car()? {
+        return analyze_namedlet(exprs);
+    }
+    let (bindings, body) = exprs.unpack()?;
+    let bind = analyze_let_bindings(bindings.list()?);
+    let body = analyze_sequence(body)?;
+    Ok(Expression::Let(LetExpr::LetRec(bind, body)))
+}
+
+fn analyze_namedlet(exprs: List) -> Result<Expression, Error> {
     let (name, bindings, body) = exprs.unpack2()?;
     let name = name.ident()?;
     let bind = analyze_let_bindings(bindings.list()?);
