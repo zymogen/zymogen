@@ -1,4 +1,5 @@
 use super::*;
+use super::ir::hir::{Expression::*, *};
 
 /// Desugar a let expression into a lambda with application
 /// ```skip
@@ -23,7 +24,7 @@ fn desugar_let(letexpr: LetExpr) -> PrimitiveExpr {
                     rest: None,
                     body,
                 }))),
-                rands,
+                rands: rands.into_iter().map(|r| Expression::Primitive(desugar(r))).collect(),
             })
         }
         LetExpr::NamedLet(name, bind, body) => unimplemented!(),
@@ -116,11 +117,7 @@ fn desugar_lambda(lambda: LambdaExpr) -> PrimitiveExpr {
     PrimitiveExpr::Lambda(LambdaExpr {
         args: lambda.args,
         rest: lambda.rest,
-        body: lambda
-            .body
-            .into_iter()
-            .map(|exp| Expression::Primitive(desugar(exp)))
-            .collect(),
+        body: vec![Expression::Primitive(desugar_begin(lambda.body))],
     })
 }
 

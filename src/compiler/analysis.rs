@@ -1,7 +1,6 @@
 use super::ir::hir::{self, Expression::*, *};
 use super::sexp::Ty;
 use super::*;
-pub mod desugar;
 
 fn analyze_lambda(exprs: List) -> Result<Expression, Error> {
     let (args, body) = exprs.unpack()?;

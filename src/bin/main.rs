@@ -71,7 +71,7 @@ fn main() -> io::Result<()> {
 
         let mut last = None;
         for exp in sexprs {
-            last = Some(compiler::desugar(compiler::analyze(exp).unwrap()));
+            last = Some(compiler::lower_exp(compiler::desugar(compiler::analyze(exp).unwrap())));
         }
 
         println!("===> {}", last.unwrap());
