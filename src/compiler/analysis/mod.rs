@@ -141,6 +141,32 @@ fn analyze_assignment(exprs: List) -> Result<Expression, Error> {
     )))
 }
 
+fn analyze_define(exprs: List) -> Result<Expression, Error> {
+    let (var, rest) = exprs.unpack()?;
+
+    match var {
+        Sexp::List(List::Cons(f, args)) => {
+            // Easiest way to handle this is to construct a mock lambda body
+            // and then pass to the analyze_lambda function
+            let lambda_body = List::Cons(Box::new(Sexp::List(*args)), Box::new(rest));
+            Ok(Expression::Primitive(PrimitiveExpr::Assignment(
+                Assignment {
+                    var: f.as_ident()?.clone(),
+                    exp: Box::new(analyze_lambda(lambda_body)?),
+                },
+            )))
+        }
+
+        Sexp::Identifier(s) => Ok(Expression::Primitive(PrimitiveExpr::Assignment(
+            Assignment {
+                var: s,
+                exp: Box::new(analyze(rest.unpack()?.0)?),
+            },
+        ))),
+        x => Err(Error::WrongType(Ty::Identifier, x.ty())),
+    }
+}
+
 fn analyze_quasiquote(depth: u32, exprs: List) -> Result<Expression, Error> {
     // let (car, cdr) = exprs.unpack()?;
     // let mut vec = Vec::new();
@@ -185,7 +211,8 @@ fn analyze_list(exprs: List) -> Result<Expression, Error> {
             ))),
             Sexp::Keyword(Keyword::If) => analyze_if(cdr),
             Sexp::Keyword(Keyword::Cond) => analyze_cond(cdr),
-            Sexp::Keyword(Keyword::Define) | Sexp::Keyword(Keyword::Set) => analyze_assignment(cdr),
+            Sexp::Keyword(Keyword::Define) => analyze_define(cdr),
+            Sexp::Keyword(Keyword::Set) => analyze_assignment(cdr),
             Sexp::Keyword(Keyword::And) => Ok(Expression::Derived(DerivedExpr::And(
                 analyze_sequence(cdr)?,
             ))),
