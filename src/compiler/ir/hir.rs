@@ -3,7 +3,7 @@
 //! These are directly parsed from the input, and in the transformation down to
 //! MIR, all derived expressions will be converted into primitive expressions
 //! and the AST will be simplified
-use super::super::*;
+use super::super::Sexp;
 
 pub type Sequence = Vec<Expression>;
 
@@ -14,7 +14,7 @@ pub enum Expression {
     Cond(Vec<CondClause>, Option<Sequence>),
     And(Sequence),
     Or(Sequence),
-    Quasiquoted(u32, Sequence),
+    Quasiquoted(u32, Box<Expression>),
     Literal(Sexp),
     Variable(String),
     Quotation(Sexp),

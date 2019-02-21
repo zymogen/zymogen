@@ -43,7 +43,7 @@ fn desugar_let(letexpr: LetExpr) -> Expr {
             )
         }
         LetExpr::NamedLet(name, bind, body) => {
-            /// Strategy here is to construct a LetRec and just desugar that
+            // Strategy here is to construct a LetRec and just desugar that
             let mut args = Vec::new();
             let mut rands = Vec::new();
             bind.into_iter().for_each(|bind| {
@@ -195,6 +195,14 @@ fn desugar_quote(exprs: Sexp) -> Expr {
     }
 }
 
+fn desugar_quasi(qqexp: Expression, depth: u32) -> Expr {
+    println!("{} {:?}", depth, qqexp);
+    match qqexp {
+        
+        _ => desugar(qqexp),
+    }
+}
+
 pub fn desugar(expr: Expression) -> Expr {
     match expr {
         Expression::If(test, csq, alt) => desugar_if(*test, *csq, alt),
@@ -206,13 +214,13 @@ pub fn desugar(expr: Expression) -> Expr {
         Expression::Cond(clauses, else_clause) => desugar_cond(clauses, else_clause),
         Expression::And(body) => desugar_and(body),
         Expression::Or(body) => desugar_or(body),
-        Expression::Quasiquoted(_depth, _seq) => unimplemented!(),
+        Expression::Quasiquoted(depth, sexp) => desugar_quasi(*sexp, depth),
 
         // Self-evalulating expressions
         Expression::Literal(Sexp::Literal(s)) => Expr::Val(Value::Str(s)),
         Expression::Literal(Sexp::Boolean(s)) => Expr::Val(Value::Bool(s)),
         Expression::Literal(Sexp::Integer(i)) => Expr::Val(Value::Int(i)),
-        Expression::Literal(_) => unimplemented!(),
+        Expression::Literal(_) => panic!("unrecog {:?}", expr),
         Expression::Variable(s) => Expr::Var(s),
         Expression::Quotation(inner) => desugar_quote(inner),
     }

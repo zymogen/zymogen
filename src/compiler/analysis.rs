@@ -160,35 +160,40 @@ fn analyze_define(exprs: List) -> Result<Expression, Error> {
     }
 }
 
-fn analyze_quasiquote(depth: u32, exprs: List) -> Result<Expression, Error> {
-    // let (car, cdr) = exprs.unpack()?;
-    // let mut vec = Vec::new();
+fn analyze_quasiquote(depth: u32, qqexp: Sexp) -> Result<Expression, Error> {
+    println!("qq {} {:?}", depth, qqexp);
+    match &qqexp {
+        Sexp::List(List::Cons(car, _)) => {
+            println!("qq list car = {}", car);
+            match &**car {
+                Sexp::Keyword(Keyword::Unquote) => {
+                    let (car, exp) = qqexp.list()?.unpack()?;
+                    if depth == 1 {
+                        println!("unquote {}", exp);
+                        analyze(exp.unpack()?.0)
+                    } else {
+                        println!("unquote {} {}", exp, depth - 1);
+                        analyze_quasiquote(depth - 1, exp.unpack()?.0)
+                    }
+                },
+                Sexp::Keyword(Keyword::Quasiquote) => {
+                    let (car, exp) = qqexp.list()?.unpack()?;
+                    Ok(Quasiquoted(depth + 1, Box::new(analyze_quasiquote(depth + 1, exp.unpack()?.0)?) ))
+                },
+                
+                _ => {
+                    Ok(Expression::Call(Box::new(Expression::Variable("list".to_string())),
+                        qqexp.list()?.into_iter().map(|x| analyze_quasiquote(depth, x)).collect::<Result<Vec<Expression>, Error>>()?))
 
-    // match car {
-    //     Sexp::List(List::Cons(caar, cdar)) => {
-    //         match &*caar {
-    //             Sexp::Keyword(Keyword::Unquote) => {
-    //                 if depth == 1{
-    //                     vec.extend(analyze_sequence(*cdar)?);
-    //                 } else {
-    //                     vec.push(analyze_quasiquote(depth - 1, *cdar)?);
-    //                 }
-    //             }
-    //             Sexp::Keyword(Keyword::UnquoteAt) =>
-    // vec.push(analyze_quasiquote(depth - 1, *cdar)?),
-    // Sexp::Keyword(Keyword::Quasiquote) => vec.push(analyze_quasiquote(depth + 1,
-    // *cdar)?),             _ => {
-    //                 vec.push(analyze(*caar)?);
-    //                 vec.extend(analyze_quasiquote(depth, cdar));
-    //             }
-    //         }
-    //     },
-    //     Sexp::Keyword(Keyword::Quasiquote) => analyze_quasiquote(depth + 1, cdr),
-    //     _ => analyze(car),
-    // };
-    // vec.push(expr);
-    // Ok(Expression::Quasiquoted(depth, vec)))
-    unimplemented!()
+                }
+                
+            }
+        } 
+        Sexp::Keyword(Keyword::Unquote) | Sexp::Keyword(Keyword::UnquoteAt) => unimplemented!(),
+        Sexp::Keyword(Keyword::Quasiquote) => unimplemented!(),
+       // _ => Ok(Expression::Quasiquoted(depth, Box::new(analyze(qqexp)?))),
+        _ => Ok(Expression::Quotation(qqexp)),
+    }
 }
 
 #[inline]
@@ -218,7 +223,7 @@ fn analyze_list(exprs: List) -> Result<Expression, Error> {
             Sexp::Keyword(Keyword::And) => Ok(Expression::And(analyze_sequence(cdr)?)),
             Sexp::Keyword(Keyword::Or) => Ok(Expression::Or(analyze_sequence(cdr)?)),
             Sexp::Keyword(Keyword::Quote) => Ok(Expression::Quotation(cdr.unpack()?.0)),
-            Sexp::Keyword(Keyword::Quasiquote) => analyze_quasiquote(1, cdr),
+            Sexp::Keyword(Keyword::Quasiquote) => analyze_quasiquote(1, cdr.unpack()?.0),
             Sexp::Keyword(Keyword::Delay) => analyze_delay(cdr),
             Sexp::Identifier(func) => analyze_call(Variable(func), cdr),
             _ => panic!("Invalid start of list {}", sexp),
@@ -231,7 +236,6 @@ fn analyze_list(exprs: List) -> Result<Expression, Error> {
 
 #[inline]
 fn analyze_sequence(exprs: List) -> Result<Sequence, Error> {
-    println!("{}", exprs);
     if exprs == List::Nil {
         return Err(Error::EmptyList);
     }

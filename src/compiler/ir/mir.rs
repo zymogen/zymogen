@@ -1,4 +1,3 @@
-use super::super::*;
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -29,16 +28,6 @@ pub enum Expr {
     Quote(Value),
 }
 
-impl fmt::Display for Value {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Value::Str(s) => write!(f, "{}", s),
-            Value::Bool(s) => write!(f, "{}", s),
-            Value::Int(s) => write!(f, "{}", s),
-            Value::Nil => write!(f, "'()'"),
-        }
-    }
-}
 
 fn display_nested_let(e: &Expr, lvl: u32) -> String {
     let mut indent = (0..lvl * 4).map(|_| ' ').collect::<String>();
@@ -53,6 +42,17 @@ fn display_nested_let(e: &Expr, lvl: u32) -> String {
     };
     indent.push_str(&out);
     indent
+}
+
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Value::Str(s) => write!(f, "{}", s),
+            Value::Bool(s) => write!(f, "{}", s),
+            Value::Int(s) => write!(f, "{}", s),
+            Value::Nil => write!(f, "'()"),
+        }
+    }
 }
 
 impl fmt::Display for Expr {
