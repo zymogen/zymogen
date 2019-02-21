@@ -14,8 +14,8 @@ pub enum Sexp {
     List(List),
 }
 
-/// Primitive types of S-expressions
 #[derive(PartialEq, PartialOrd, Debug, Clone, Copy)]
+/// Primitive types of S-expressions
 pub enum Ty {
     Boolean,
     Integer,
@@ -31,6 +31,7 @@ pub enum List {
     Nil,
 }
 #[derive(PartialEq, PartialOrd, Debug, Clone, Copy)]
+/// Syntatic keywords that are reserved
 pub enum Keyword {
     Quote,
     Lambda,

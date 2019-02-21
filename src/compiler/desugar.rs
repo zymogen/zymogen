@@ -43,6 +43,7 @@ fn desugar_let(letexpr: LetExpr) -> Expr {
             )
         }
         LetExpr::NamedLet(name, bind, body) => {
+            /// Strategy here is to construct a LetRec and just desugar that
             let mut args = Vec::new();
             let mut rands = Vec::new();
             bind.into_iter().for_each(|bind| {
@@ -56,18 +57,11 @@ fn desugar_let(letexpr: LetExpr) -> Expr {
                     args,
                     rest: None,
                     body,
-                })
+                }),
             };
-
             let body = Expression::Call(Box::new(Expression::Variable(name)), rands);
-            
+
             desugar_let(LetExpr::LetRec(vec![nbinds], vec![body]))
-            // let expr = desugar_bindings(
-            //     args,
-            //     rands.into_iter().map(desugar).collect(),
-            //     desugar_begin(body),
-            // );
-            // Expr::Set(name, Box::new(expr))
         }
         LetExpr::LetRec(bind, body) => {
             let mut args = Vec::new();
@@ -155,7 +149,8 @@ fn desugar_or(mut body: Sequence) -> Expr {
 }
 
 /// Desugar lambda body. If the body is a sequence of expressions > 1,
-/// then the expressions in the body will be desugared into nested let statements
+/// then the expressions in the body will be desugared into nested let
+/// statements
 fn desugar_lambda(lambda: LambdaExpr) -> Expr {
     Expr::Lambda(
         lambda.args,
@@ -164,6 +159,7 @@ fn desugar_lambda(lambda: LambdaExpr) -> Expr {
     )
 }
 
+/// Desugar an if expression
 fn desugar_if(test: Expression, csq: Expression, alt: Option<Box<Expression>>) -> Expr {
     Expr::If(
         Box::new(desugar(test)),
@@ -172,14 +168,31 @@ fn desugar_if(test: Expression, csq: Expression, alt: Option<Box<Expression>>) -
     )
 }
 
+/// Desugar rator and rand of an application
 fn desugar_app(rator: Expression, rands: Sequence) -> Expr {
     Expr::App(
         Box::new(desugar(rator)),
         rands.into_iter().map(desugar).collect(),
     )
 }
+
+/// Desugar binding of an assignment
 fn desugar_assignment(var: String, val: Expression) -> Expr {
     Expr::Set(var, Box::new(desugar(val)))
+}
+
+fn desugar_quote(exprs: Sexp) -> Expr {
+    match exprs {
+        Sexp::List(List::Cons(car, cdr)) => Expr::App(
+            Box::new(Expr::Var("cons".to_string())),
+            vec![desugar_quote(*car), desugar_quote(Sexp::List(*cdr))],
+        ),
+        Sexp::List(List::Nil) => Expr::Quote(Value::Nil),
+        Sexp::Identifier(s) | Sexp::Literal(s) => Expr::Quote(Value::Str(s)),
+        Sexp::Integer(i) => Expr::Quote(Value::Int(i)),
+        Sexp::Boolean(b) => Expr::Quote(Value::Bool(b)),
+        Sexp::Keyword(kw) => Expr::Quote(Value::Str(format!("{:?}", kw).to_lowercase())),
+    }
 }
 
 pub fn desugar(expr: Expression) -> Expr {
@@ -201,6 +214,6 @@ pub fn desugar(expr: Expression) -> Expr {
         Expression::Literal(Sexp::Integer(i)) => Expr::Val(Value::Int(i)),
         Expression::Literal(_) => unimplemented!(),
         Expression::Variable(s) => Expr::Var(s),
-        Expression::Quotation(inner) => Expr::Quote(inner),
+        Expression::Quotation(inner) => desugar_quote(inner),
     }
 }

@@ -1,4 +1,4 @@
-//! Analysis and transfrom from raw Sexps to the HIR abstract syntax tree
+//! Parse from raw Sexps to the HIR abstract syntax tree
 use super::ir::hir::{Expression::*, *};
 use super::sexp::Ty;
 use super::*;
@@ -39,8 +39,8 @@ fn analyze_lambda(exprs: List) -> Result<Expression, Error> {
     }))
 }
 
-fn analyze_let_bindings(bindings: List) -> Vec<LetBindings> {
-    bindings
+fn analyze_let_bindings(exprs: List) -> Vec<LetBindings> {
+    exprs
         .into_iter()
         .filter_map(|bind| match bind {
             Sexp::List(List::Nil) => None,
@@ -80,18 +80,22 @@ fn analyze_namedlet(exprs: List) -> Result<Expression, Error> {
     let (name, bindings, body) = exprs.unpack2()?;
     let name = name.ident()?;
     let bind = analyze_let_bindings(bindings.list()?);
-    let body = analyze_sequence(body)?;    
-    
+    let body = analyze_sequence(body)?;
+
     Ok(Expression::Let(LetExpr::NamedLet(name, bind, body)))
 }
 
-fn analyze_call(func: Expression, rest: List) -> Result<Expression, Error> {
-    let rands = analyze_sequence(rest)?;
-    Ok(Expression::Call(Box::new(func), rands))
+fn analyze_call(func: Expression, exprs: List) -> Result<Expression, Error> {
+    if exprs == List::Nil {
+        Ok(Expression::Call(Box::new(func), vec![]))
+    } else {
+        let rands = analyze_sequence(exprs)?;
+        Ok(Expression::Call(Box::new(func), rands))
+    }
 }
 
-fn analyze_if(rest: List) -> Result<Expression, Error> {
-    let (test, csq, alt) = rest.unpack2()?;
+fn analyze_if(exprs: List) -> Result<Expression, Error> {
+    let (test, csq, alt) = exprs.unpack2()?;
     let test = Box::new(analyze(test)?);
     let csq = Box::new(analyze(csq)?);
     let alt = match alt.unpack() {
@@ -101,10 +105,10 @@ fn analyze_if(rest: List) -> Result<Expression, Error> {
     Ok(Expression::If(test, csq, alt))
 }
 
-fn analyze_cond(rest: List) -> Result<Expression, Error> {
+fn analyze_cond(exprs: List) -> Result<Expression, Error> {
     let mut clauses = Vec::new();
     let mut else_clause = None;
-    let mut next = rest;
+    let mut next = exprs;
     while let Ok((car, cdr)) = next.unpack() {
         if let Ok((test, body)) = car.list()?.unpack() {
             match test {
@@ -188,6 +192,16 @@ fn analyze_quasiquote(depth: u32, exprs: List) -> Result<Expression, Error> {
 }
 
 #[inline]
+/// Generate a thunk to delay computation
+fn analyze_delay(exprs: List) -> Result<Expression, Error> {
+    Ok(Expression::Lambda(LambdaExpr {
+        args: vec![],
+        rest: None,
+        body: analyze_sequence(exprs)?,
+    }))
+}
+
+#[inline]
 fn analyze_list(exprs: List) -> Result<Expression, Error> {
     let (car, cdr) = exprs.unpack()?;
     let f = analyze(car)?;
@@ -205,6 +219,7 @@ fn analyze_list(exprs: List) -> Result<Expression, Error> {
             Sexp::Keyword(Keyword::Or) => Ok(Expression::Or(analyze_sequence(cdr)?)),
             Sexp::Keyword(Keyword::Quote) => Ok(Expression::Quotation(cdr.unpack()?.0)),
             Sexp::Keyword(Keyword::Quasiquote) => analyze_quasiquote(1, cdr),
+            Sexp::Keyword(Keyword::Delay) => analyze_delay(cdr),
             Sexp::Identifier(func) => analyze_call(Variable(func), cdr),
             _ => panic!("Invalid start of list {}", sexp),
         },
@@ -216,6 +231,10 @@ fn analyze_list(exprs: List) -> Result<Expression, Error> {
 
 #[inline]
 fn analyze_sequence(exprs: List) -> Result<Sequence, Error> {
+    println!("{}", exprs);
+    if exprs == List::Nil {
+        return Err(Error::EmptyList);
+    }
     exprs
         .into_iter()
         .map(analyze)

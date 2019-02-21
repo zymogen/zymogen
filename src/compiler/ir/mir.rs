@@ -6,6 +6,7 @@ pub enum Value {
     Str(String),
     Bool(bool),
     Int(i64),
+    Nil,
 }
 
 #[derive(Debug, PartialEq, PartialOrd)]
@@ -25,7 +26,7 @@ pub enum Expr {
 
     Set(String, Box<Expr>),
 
-    Quote(Sexp),
+    Quote(Value),
 }
 
 impl fmt::Display for Value {
@@ -34,8 +35,24 @@ impl fmt::Display for Value {
             Value::Str(s) => write!(f, "{}", s),
             Value::Bool(s) => write!(f, "{}", s),
             Value::Int(s) => write!(f, "{}", s),
+            Value::Nil => write!(f, "'()'"),
         }
     }
+}
+
+fn display_nested_let(e: &Expr, lvl: u32) -> String {
+    let mut indent = (0..lvl * 4).map(|_| ' ').collect::<String>();
+    let out = match e {
+        Expr::Let(var, val, body) => format!(
+            "(let (({} {}))\n{})",
+            var,
+            val,
+            display_nested_let(body, lvl + 1)
+        ),
+        _ => format!("{}", e),
+    };
+    indent.push_str(&out);
+    indent
 }
 
 impl fmt::Display for Expr {
@@ -43,7 +60,13 @@ impl fmt::Display for Expr {
         match self {
             Expr::Val(v) => write!(f, "{}", v),
             Expr::Var(s) => write!(f, "{}", s),
-            Expr::Let(var, val, body) => write!(f, "(let (({} {})) {})", var, val, body),
+            Expr::Let(var, val, body) => write!(
+                f,
+                "(let (({} {}))\n{})",
+                var,
+                val,
+                display_nested_let(body, 1)
+            ),
             Expr::Lambda(var, None, body) => write!(f, "(λ ({}) {})", var.join(" "), body),
             Expr::Lambda(var, Some(rest), body) => {
                 write!(f, "(λ ({} . {}) {})", var.join(" "), rest, body)
@@ -60,6 +83,7 @@ impl fmt::Display for Expr {
             Expr::If(test, csq, None) => write!(f, "(if {} {})", test, csq),
             Expr::If(test, csq, Some(alt)) => write!(f, "(if {} {} {})", test, csq, alt),
             Expr::Set(var, exp) => write!(f, "(set! {} {})", var, exp),
+            Expr::Quote(Value::Nil) => write!(f, "'()"),
             Expr::Quote(exp) => write!(f, "'{}", exp),
         }
     }

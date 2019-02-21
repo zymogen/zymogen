@@ -71,7 +71,14 @@ fn main() -> io::Result<()> {
 
         let mut last = None;
         for exp in sexprs {
-            last = Some(compiler::desugar(compiler::analyze(exp).unwrap()));
+            let base = format!("{}", exp);
+            match compiler::analyze(exp) {
+                Ok(exp) => last = Some(compiler::desugar(exp)),
+                Err(e) => {
+                    println!("Error {:?} during {}", e, base);
+                    return Ok(());
+                }
+            }
         }
 
         println!("===> {}", last.unwrap());
