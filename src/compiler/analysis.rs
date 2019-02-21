@@ -1,6 +1,6 @@
 //! Parse from raw Sexps to the HIR abstract syntax tree
 use super::ir::hir::{Expression::*, *};
-use super::sexp::Ty;
+use super::sexp::{Keyword, List, Sexp, Ty};
 use super::*;
 
 fn analyze_lambda(exprs: List) -> Result<Expression, Error> {
@@ -16,7 +16,7 @@ fn analyze_lambda(exprs: List) -> Result<Expression, Error> {
             loop {
                 let n = iter.next();
                 match n {
-                    Some(Sexp::Keyword(Keyword::Dot)) => {
+                    Some(Sexp::Keyword(sexp::Keyword::Dot)) => {
                         rest = Some(iter.next().ok_or(Error::Arity)?.ident()?);
                     }
                     Some(Sexp::Identifier(s)) => {
@@ -112,7 +112,7 @@ fn analyze_cond(exprs: List) -> Result<Expression, Error> {
     while let Ok((car, cdr)) = next.unpack() {
         if let Ok((test, body)) = car.list()?.unpack() {
             match test {
-                Sexp::Keyword(Keyword::Else) => {
+                Sexp::Keyword(sexp::Keyword::Else) => {
                     else_clause = Some(analyze_sequence(body)?);
                     break;
                 }
@@ -166,7 +166,7 @@ fn analyze_quasiquote(depth: u32, qqexp: Sexp) -> Result<Expression, Error> {
         Sexp::List(List::Cons(car, _)) => {
             println!("qq list car = {}", car);
             match &**car {
-                Sexp::Keyword(Keyword::Unquote) => {
+                Sexp::Keyword(sexp::Keyword::Unquote) => {
                     let (car, exp) = qqexp.list()?.unpack()?;
                     if depth == 1 {
                         println!("unquote {}", exp);
@@ -175,24 +175,31 @@ fn analyze_quasiquote(depth: u32, qqexp: Sexp) -> Result<Expression, Error> {
                         println!("unquote {} {}", exp, depth - 1);
                         analyze_quasiquote(depth - 1, exp.unpack()?.0)
                     }
-                },
-                Sexp::Keyword(Keyword::Quasiquote) => {
-                    let (car, exp) = qqexp.list()?.unpack()?;
-                    Ok(Quasiquoted(depth + 1, Box::new(analyze_quasiquote(depth + 1, exp.unpack()?.0)?) ))
-                },
-                
-                _ => {
-                    Ok(Expression::Call(Box::new(Expression::Variable("list".to_string())),
-                        qqexp.list()?.into_iter().map(|x| analyze_quasiquote(depth, x)).collect::<Result<Vec<Expression>, Error>>()?))
-
                 }
-                
+                Sexp::Keyword(sexp::Keyword::Quasiquote) => {
+                    let (car, exp) = qqexp.list()?.unpack()?;
+                    Ok(Quasiquoted(
+                        depth + 1,
+                        Box::new(analyze_quasiquote(depth + 1, exp.unpack()?.0)?),
+                    ))
+                }
+
+                _ => Ok(Expression::Call(
+                    Box::new(Expression::Variable("list".to_string())),
+                    qqexp
+                        .list()?
+                        .into_iter()
+                        .map(|x| analyze_quasiquote(depth, x))
+                        .collect::<Result<Vec<Expression>, Error>>()?,
+                )),
             }
-        } 
-        Sexp::Keyword(Keyword::Unquote) | Sexp::Keyword(Keyword::UnquoteAt) => unimplemented!(),
-        Sexp::Keyword(Keyword::Quasiquote) => unimplemented!(),
-       // _ => Ok(Expression::Quasiquoted(depth, Box::new(analyze(qqexp)?))),
-        _ => Ok(Expression::Quotation(qqexp)),
+        }
+        Sexp::Keyword(sexp::Keyword::Unquote) | Sexp::Keyword(sexp::Keyword::UnquoteAt) => {
+            unimplemented!()
+        }
+        Sexp::Keyword(sexp::Keyword::Quasiquote) => unimplemented!(),
+        // _ => Ok(Expression::Quasiquoted(depth, Box::new(analyze(qqexp)?))),
+        _ => analyze_quote(qqexp),
     }
 }
 
@@ -206,28 +213,38 @@ fn analyze_delay(exprs: List) -> Result<Expression, Error> {
     }))
 }
 
+fn analyze_quote(exp: Sexp) -> Result<Expression, Error> {
+    Ok(match exp {
+        Sexp::List(List::Cons(car, cdr)) => Expression::Call(
+            Box::new(Expression::Variable("cons".to_string())),
+            vec![analyze_quote(*car)?, analyze_quote(Sexp::List(*cdr))?],
+        ),
+        Sexp::List(List::Nil) => Expression::Quotation(Value::Nil),
+        Sexp::Identifier(s) | Sexp::Literal(s) => Expression::Quotation(Value::Str(s)),
+        Sexp::Integer(i) => Expression::Quotation(Value::Int(i)),
+        Sexp::Boolean(b) => Expression::Quotation(Value::Bool(b)),
+        Sexp::Keyword(kw) => Expression::Quotation(Value::Str(format!("{:?}", kw).to_lowercase())),
+    })
+}
+
 #[inline]
 fn analyze_list(exprs: List) -> Result<Expression, Error> {
     let (car, cdr) = exprs.unpack()?;
     let f = analyze(car)?;
     match f {
-        Literal(sexp) => match sexp {
-            Sexp::Keyword(Keyword::Lambda) => analyze_lambda(cdr),
-            Sexp::Keyword(Keyword::Let) | Sexp::Keyword(Keyword::Letstar) => analyze_let(cdr),
-            Sexp::Keyword(Keyword::Letrec) => analyze_letrec(cdr),
-            Sexp::Keyword(Keyword::Begin) => Ok(Expression::Begin(analyze_sequence(cdr)?)),
-            Sexp::Keyword(Keyword::If) => analyze_if(cdr),
-            Sexp::Keyword(Keyword::Cond) => analyze_cond(cdr),
-            Sexp::Keyword(Keyword::Define) => analyze_define(cdr),
-            Sexp::Keyword(Keyword::Set) => analyze_assignment(cdr),
-            Sexp::Keyword(Keyword::And) => Ok(Expression::And(analyze_sequence(cdr)?)),
-            Sexp::Keyword(Keyword::Or) => Ok(Expression::Or(analyze_sequence(cdr)?)),
-            Sexp::Keyword(Keyword::Quote) => Ok(Expression::Quotation(cdr.unpack()?.0)),
-            Sexp::Keyword(Keyword::Quasiquote) => analyze_quasiquote(1, cdr.unpack()?.0),
-            Sexp::Keyword(Keyword::Delay) => analyze_delay(cdr),
-            Sexp::Identifier(func) => analyze_call(Variable(func), cdr),
-            _ => panic!("Invalid start of list {}", sexp),
-        },
+        Keyword(sexp::Keyword::Lambda) => analyze_lambda(cdr),
+        Keyword(sexp::Keyword::Let) | Keyword(sexp::Keyword::Letstar) => analyze_let(cdr),
+        Keyword(sexp::Keyword::Letrec) => analyze_letrec(cdr),
+        Keyword(sexp::Keyword::Begin) => Ok(Expression::Begin(analyze_sequence(cdr)?)),
+        Keyword(sexp::Keyword::If) => analyze_if(cdr),
+        Keyword(sexp::Keyword::Cond) => analyze_cond(cdr),
+        Keyword(sexp::Keyword::Define) => analyze_define(cdr),
+        Keyword(sexp::Keyword::Set) => analyze_assignment(cdr),
+        Keyword(sexp::Keyword::And) => Ok(Expression::And(analyze_sequence(cdr)?)),
+        Keyword(sexp::Keyword::Or) => Ok(Expression::Or(analyze_sequence(cdr)?)),
+        Keyword(sexp::Keyword::Quote) => analyze_quote(cdr.unpack()?.0),
+        Keyword(sexp::Keyword::Quasiquote) => analyze_quasiquote(1, cdr.unpack()?.0),
+        Keyword(sexp::Keyword::Delay) => analyze_delay(cdr),
         Lambda(_) | Call(_, _) => analyze_call(f, cdr),
         Variable(_) => analyze_call(f, cdr),
         _ => panic!("Invalid expr! {:?}", f),
@@ -248,10 +265,11 @@ fn analyze_sequence(exprs: List) -> Result<Sequence, Error> {
 #[inline]
 pub fn analyze(expr: Sexp) -> Result<Expression, Error> {
     match expr {
-        Sexp::Boolean(_) | Sexp::Integer(_) | Sexp::Literal(_) | Sexp::Keyword(_) => {
-            Ok(Literal(expr))
-        }
+        Sexp::Literal(s) => Ok(Expression::Literal(Value::Str(s))),
+        Sexp::Integer(i) => Ok(Expression::Literal(Value::Int(i))),
+        Sexp::Boolean(b) => Ok(Expression::Literal(Value::Bool(b))),
         Sexp::Identifier(s) => Ok(Variable(s)),
         Sexp::List(list) => analyze_list(list),
+        Sexp::Keyword(kw) => Ok(Expression::Keyword(kw)),
     }
 }

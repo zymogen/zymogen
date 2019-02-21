@@ -1,7 +1,7 @@
 //! Transform and desugaring of HIR to MIR.
 
 use super::hir::*;
-use super::mir::{Expr, Value};
+use super::mir::Expr;
 use super::*;
 
 /// Helper function to recursively generate nested let expressions
@@ -198,7 +198,6 @@ fn desugar_quote(exprs: Sexp) -> Expr {
 fn desugar_quasi(qqexp: Expression, depth: u32) -> Expr {
     println!("{} {:?}", depth, qqexp);
     match qqexp {
-        
         _ => desugar(qqexp),
     }
 }
@@ -217,11 +216,9 @@ pub fn desugar(expr: Expression) -> Expr {
         Expression::Quasiquoted(depth, sexp) => desugar_quasi(*sexp, depth),
 
         // Self-evalulating expressions
-        Expression::Literal(Sexp::Literal(s)) => Expr::Val(Value::Str(s)),
-        Expression::Literal(Sexp::Boolean(s)) => Expr::Val(Value::Bool(s)),
-        Expression::Literal(Sexp::Integer(i)) => Expr::Val(Value::Int(i)),
-        Expression::Literal(_) => panic!("unrecog {:?}", expr),
+        Expression::Literal(val) => Expr::Val(val),
         Expression::Variable(s) => Expr::Var(s),
-        Expression::Quotation(inner) => desugar_quote(inner),
+        Expression::Quotation(inner) => Expr::Quote(inner),
+        Expression::Keyword(_) => panic!("unrecog {:?}", expr),
     }
 }

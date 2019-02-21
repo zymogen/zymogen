@@ -3,21 +3,23 @@
 //! These are directly parsed from the input, and in the transformation down to
 //! MIR, all derived expressions will be converted into primitive expressions
 //! and the AST will be simplified
-use super::super::Sexp;
+use super::super::Keyword;
+use super::Value;
 
 pub type Sequence = Vec<Expression>;
 
 #[derive(PartialEq, PartialOrd, Debug)]
 pub enum Expression {
+    Keyword(Keyword),
     Let(LetExpr),
     Begin(Sequence),
     Cond(Vec<CondClause>, Option<Sequence>),
     And(Sequence),
     Or(Sequence),
     Quasiquoted(u32, Box<Expression>),
-    Literal(Sexp),
+    Literal(Value),
     Variable(String),
-    Quotation(Sexp),
+    Quotation(Value),
     Call(Box<Expression>, Sequence),
     Lambda(LambdaExpr),
     If(Box<Expression>, Box<Expression>, Option<Box<Expression>>),
