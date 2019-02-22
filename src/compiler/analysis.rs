@@ -288,7 +288,10 @@ fn analyze_list(exprs: List) -> Result<Expression, Error> {
         Keyword(sexp::Keyword::Delay) => analyze_delay(cdr),
         Lambda(_) | Call(_, _) => analyze_call(f, cdr),
         Variable(_) => analyze_call(f, cdr),
-        _ => panic!("Invalid expr! {:?}", f),
+        _ => Err(Error::Message(format!(
+            "`{:?}` cannot be applied to `{}`",
+            f, cdr
+        ))),
     }
 }
 

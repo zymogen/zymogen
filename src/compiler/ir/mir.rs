@@ -1,3 +1,7 @@
+//! Mid-level intermediate representation
+//!
+//! And interesting quirk of this IR is that cons lists no longer exist,
+//! and are simulated as Expr::App("cons", ...)
 use super::Value;
 use std::fmt;
 

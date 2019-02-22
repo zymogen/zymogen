@@ -65,9 +65,7 @@ fn desugar_let(letexpr: LetExpr) -> Expr {
         }
         LetExpr::LetRec(bind, body) => {
             let mut args = Vec::new();
-            let rands = (0..bind.len())
-                .map(|_| Expr::Val(Value::Bool(false)))
-                .collect();
+            let rands = (0..bind.len()).map(|_| Expr::Val(Value::Nil)).collect();
             let mut expanded = bind
                 .into_iter()
                 .map(|bind| {
@@ -113,12 +111,12 @@ fn desugar_cond(mut clauses: Vec<CondClause>, else_clause: Option<Sequence>) -> 
         )
     } else if let Some(mut seq) = else_clause {
         match seq.len() {
-            0 => Expr::Val(Value::Bool(false)),
+            0 => Expr::Val(Value::Nil),
             1 => desugar(seq.remove(0)),
             _ => desugar(Expression::Begin(seq)),
         }
     } else {
-        Expr::Val(Value::Bool(false))
+        Expr::Val(Value::Nil)
     }
 }
 
@@ -196,6 +194,7 @@ pub fn desugar(expr: Expression) -> Expr {
         // Self-evalulating expressions
         Expression::Literal(val) => Expr::Val(val),
         Expression::Variable(s) => Expr::Var(s),
+        // Desugaring for quote is done in the analysis phase
         Expression::Quotation(inner) => Expr::Quote(inner),
         Expression::Keyword(_) => panic!("unrecog {:?}", expr),
     }

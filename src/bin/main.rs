@@ -75,7 +75,7 @@ fn main() -> io::Result<()> {
             match compiler::analyze(exp) {
                 Ok(exp) => last = Some(compiler::desugar(exp)),
                 Err(e) => {
-                    println!("Error {:?} during {}", e, base);
+                    println!("Error {:?} during analysis of expression `{}`", e, base);
                     return Ok(());
                 }
             }
