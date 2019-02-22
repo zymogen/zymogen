@@ -175,86 +175,85 @@ fn analyze_quote(exp: Sexp) -> Result<Expression, Error> {
     })
 }
 
+#[inline]
+/// Helper function to eliminate [`List`] datatype by transforming it into calls
+/// to "cons"
+fn mock_call(func_name: &str, args: Vec<Expression>) -> Result<Expression, Error> {
+    Ok(Expression::Call(
+        Box::new(Expression::Variable(func_name.to_string())),
+        args,
+    ))
+}
+
+/// Desugar and eliminate quasiquote forms
 fn analyze_quasiquote(depth: u32, qqexp: Sexp) -> Result<Expression, Error> {
-    println!("qq {} {:?}", depth, qqexp);
     match &qqexp {
-        Sexp::List(List::Cons(car, _)) => {
+        Sexp::List(List::Cons(_, _)) => {
             let (car, cadr) = qqexp.list()?.unpack()?;
             match &car {
                 Sexp::Keyword(sexp::Keyword::Unquote) => {
                     // car is Unquote
                     if depth == 1 {
-                        analyze(Sexp::List(cadr))
+                        analyze(cadr.unpack()?.0)
                     } else {
-                        Ok(Expression::Call(
-                            Box::new(Expression::Variable("cons".to_string())),
+                        mock_call(
+                            "cons",
                             vec![
-                                Expression::Variable("quasiquote".to_string()),
+                                analyze_quote(car)?,
                                 analyze_quasiquote(depth - 1, Sexp::List(cadr))?,
                             ],
-                        ))
+                        )
                     }
                 }
-                Sexp::Keyword(sexp::Keyword::Quasiquote) => Ok(Expression::Call(
-                    Box::new(Expression::Variable("cons".to_string())),
+                Sexp::Keyword(sexp::Keyword::Quasiquote) => mock_call(
+                    "list",
                     vec![
-                        Expression::Variable("quasiquote".to_string()),
-                        Expression::Quasiquoted(
-                            depth + 1,
-                            Box::new(analyze_quasiquote(depth + 1, Sexp::List(cadr))?),
-                        ),
+                        analyze_quote(car)?,
+                        analyze_quasiquote(depth + 1, Sexp::List(cadr))?,
                     ],
-                )),
-                Sexp::List(List::Cons(caar, cdar)) => {
+                ),
+                Sexp::List(List::Cons(caar, _)) => {
                     if &**caar == &Sexp::Keyword(sexp::Keyword::UnquoteAt) {
-                        let (caar, cdar, cddar) = car.list()?.unpack2()?;
+                        let (caar, cdar, _) = car.list()?.unpack2()?;
                         if depth == 1 {
-                            Ok(Expression::Call(
-                                Box::new(Expression::Variable("append".to_string())),
+                            mock_call(
+                                "append",
                                 vec![analyze(cdar)?, analyze_quasiquote(depth, Sexp::List(cadr))?],
-                            ))
+                            )
                         } else {
-                            Ok(Expression::Call(
-                                Box::new(Expression::Variable("cons".to_string())),
+                            mock_call(
+                                "cons",
                                 vec![
-                                    Expression::Call(
-                                        Box::new(Expression::Variable("cons".to_string())),
+                                    mock_call(
+                                        "cons",
                                         vec![
-                                            Expression::Variable("unquote-splicing".to_string()),
+                                            analyze_quote(caar)?,
                                             analyze_quasiquote(depth - 1, cdar)?,
                                         ],
-                                    ),
-                                    Expression::Quasiquoted(
-                                        depth + 1,
-                                        Box::new(analyze_quasiquote(depth, Sexp::List(cadr))?),
-                                    ),
+                                    )?,
+                                    analyze_quasiquote(depth, Sexp::List(cadr))?,
                                 ],
-                            ))
+                            )
                         }
                     } else {
-                        Ok(Expression::Call(
-                            Box::new(Expression::Variable("cons".to_string())),
+                        mock_call(
+                            "cons",
                             vec![
                                 analyze_quasiquote(depth, car)?,
                                 analyze_quasiquote(depth, Sexp::List(cadr))?,
                             ],
-                        ))
+                        )
                     }
                 }
-                _ => Ok(Expression::Call(
-                    Box::new(Expression::Variable("cons".to_string())),
+                _ => mock_call(
+                    "cons",
                     vec![
                         analyze_quasiquote(depth, car)?,
                         analyze_quasiquote(depth, Sexp::List(cadr))?,
                     ],
-                )),
+                ),
             }
         }
-        Sexp::Keyword(sexp::Keyword::Unquote) | Sexp::Keyword(sexp::Keyword::UnquoteAt) => {
-            unimplemented!()
-        }
-        Sexp::Keyword(sexp::Keyword::Quasiquote) => unimplemented!(),
-        // _ => Ok(Expression::Quasiquoted(depth, Box::new(analyze(qqexp)?))),
         _ => analyze_quote(qqexp),
     }
 }

@@ -181,27 +181,6 @@ fn desugar_assignment(var: String, val: Expression) -> Expr {
     Expr::Set(var, Box::new(desugar(val)))
 }
 
-fn desugar_quote(exprs: Sexp) -> Expr {
-    match exprs {
-        Sexp::List(List::Cons(car, cdr)) => Expr::App(
-            Box::new(Expr::Var("cons".to_string())),
-            vec![desugar_quote(*car), desugar_quote(Sexp::List(*cdr))],
-        ),
-        Sexp::List(List::Nil) => Expr::Quote(Value::Nil),
-        Sexp::Identifier(s) | Sexp::Literal(s) => Expr::Quote(Value::Str(s)),
-        Sexp::Integer(i) => Expr::Quote(Value::Int(i)),
-        Sexp::Boolean(b) => Expr::Quote(Value::Bool(b)),
-        Sexp::Keyword(kw) => Expr::Quote(Value::Str(format!("{:?}", kw).to_lowercase())),
-    }
-}
-
-fn desugar_quasi(qqexp: Expression, depth: u32) -> Expr {
-    println!("{} {:?}", depth, qqexp);
-    match qqexp {
-        _ => desugar(qqexp),
-    }
-}
-
 pub fn desugar(expr: Expression) -> Expr {
     match expr {
         Expression::If(test, csq, alt) => desugar_if(*test, *csq, alt),
@@ -213,7 +192,6 @@ pub fn desugar(expr: Expression) -> Expr {
         Expression::Cond(clauses, else_clause) => desugar_cond(clauses, else_clause),
         Expression::And(body) => desugar_and(body),
         Expression::Or(body) => desugar_or(body),
-        Expression::Quasiquoted(depth, sexp) => desugar(*sexp),
 
         // Self-evalulating expressions
         Expression::Literal(val) => Expr::Val(val),

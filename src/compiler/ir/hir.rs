@@ -16,7 +16,6 @@ pub enum Expression {
     Cond(Vec<CondClause>, Option<Sequence>),
     And(Sequence),
     Or(Sequence),
-    Quasiquoted(u32, Box<Expression>),
     Literal(Value),
     Variable(String),
     Quotation(Value),
