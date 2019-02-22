@@ -213,7 +213,7 @@ pub fn desugar(expr: Expression) -> Expr {
         Expression::Cond(clauses, else_clause) => desugar_cond(clauses, else_clause),
         Expression::And(body) => desugar_and(body),
         Expression::Or(body) => desugar_or(body),
-        Expression::Quasiquoted(depth, sexp) => desugar_quasi(*sexp, depth),
+        Expression::Quasiquoted(depth, sexp) => desugar(*sexp),
 
         // Self-evalulating expressions
         Expression::Literal(val) => Expr::Val(val),

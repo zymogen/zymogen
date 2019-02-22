@@ -160,37 +160,93 @@ fn analyze_define(exprs: List) -> Result<Expression, Error> {
     }
 }
 
+fn analyze_quote(exp: Sexp) -> Result<Expression, Error> {
+    Ok(match exp {
+        Sexp::List(List::Cons(car, cdr)) => Expression::Call(
+            Box::new(Expression::Variable("cons".to_string())),
+            vec![analyze_quote(*car)?, analyze_quote(Sexp::List(*cdr))?],
+        ),
+        Sexp::List(List::Nil) => Expression::Quotation(Value::Nil),
+        Sexp::Identifier(s) => Expression::Quotation(Value::Str(s)),
+        Sexp::Literal(s) => Expression::Literal(Value::Str(s)),
+        Sexp::Integer(i) => Expression::Literal(Value::Int(i)),
+        Sexp::Boolean(b) => Expression::Literal(Value::Bool(b)),
+        Sexp::Keyword(kw) => Expression::Quotation(Value::Str(format!("{:?}", kw).to_lowercase())),
+    })
+}
+
 fn analyze_quasiquote(depth: u32, qqexp: Sexp) -> Result<Expression, Error> {
     println!("qq {} {:?}", depth, qqexp);
     match &qqexp {
         Sexp::List(List::Cons(car, _)) => {
-            println!("qq list car = {}", car);
-            match &**car {
+            let (car, cadr) = qqexp.list()?.unpack()?;
+            match &car {
                 Sexp::Keyword(sexp::Keyword::Unquote) => {
-                    let (car, exp) = qqexp.list()?.unpack()?;
+                    // car is Unquote
                     if depth == 1 {
-                        println!("unquote {}", exp);
-                        analyze(exp.unpack()?.0)
+                        analyze(Sexp::List(cadr))
                     } else {
-                        println!("unquote {} {}", exp, depth - 1);
-                        analyze_quasiquote(depth - 1, exp.unpack()?.0)
+                        Ok(Expression::Call(
+                            Box::new(Expression::Variable("cons".to_string())),
+                            vec![
+                                Expression::Variable("quasiquote".to_string()),
+                                analyze_quasiquote(depth - 1, Sexp::List(cadr))?,
+                            ],
+                        ))
                     }
                 }
-                Sexp::Keyword(sexp::Keyword::Quasiquote) => {
-                    let (car, exp) = qqexp.list()?.unpack()?;
-                    Ok(Quasiquoted(
-                        depth + 1,
-                        Box::new(analyze_quasiquote(depth + 1, exp.unpack()?.0)?),
-                    ))
+                Sexp::Keyword(sexp::Keyword::Quasiquote) => Ok(Expression::Call(
+                    Box::new(Expression::Variable("cons".to_string())),
+                    vec![
+                        Expression::Variable("quasiquote".to_string()),
+                        Expression::Quasiquoted(
+                            depth + 1,
+                            Box::new(analyze_quasiquote(depth + 1, Sexp::List(cadr))?),
+                        ),
+                    ],
+                )),
+                Sexp::List(List::Cons(caar, cdar)) => {
+                    if &**caar == &Sexp::Keyword(sexp::Keyword::UnquoteAt) {
+                        let (caar, cdar, cddar) = car.list()?.unpack2()?;
+                        if depth == 1 {
+                            Ok(Expression::Call(
+                                Box::new(Expression::Variable("append".to_string())),
+                                vec![analyze(cdar)?, analyze_quasiquote(depth, Sexp::List(cadr))?],
+                            ))
+                        } else {
+                            Ok(Expression::Call(
+                                Box::new(Expression::Variable("cons".to_string())),
+                                vec![
+                                    Expression::Call(
+                                        Box::new(Expression::Variable("cons".to_string())),
+                                        vec![
+                                            Expression::Variable("unquote-splicing".to_string()),
+                                            analyze_quasiquote(depth - 1, cdar)?,
+                                        ],
+                                    ),
+                                    Expression::Quasiquoted(
+                                        depth + 1,
+                                        Box::new(analyze_quasiquote(depth, Sexp::List(cadr))?),
+                                    ),
+                                ],
+                            ))
+                        }
+                    } else {
+                        Ok(Expression::Call(
+                            Box::new(Expression::Variable("cons".to_string())),
+                            vec![
+                                analyze_quasiquote(depth, car)?,
+                                analyze_quasiquote(depth, Sexp::List(cadr))?,
+                            ],
+                        ))
+                    }
                 }
-
                 _ => Ok(Expression::Call(
-                    Box::new(Expression::Variable("list".to_string())),
-                    qqexp
-                        .list()?
-                        .into_iter()
-                        .map(|x| analyze_quasiquote(depth, x))
-                        .collect::<Result<Vec<Expression>, Error>>()?,
+                    Box::new(Expression::Variable("cons".to_string())),
+                    vec![
+                        analyze_quasiquote(depth, car)?,
+                        analyze_quasiquote(depth, Sexp::List(cadr))?,
+                    ],
                 )),
             }
         }
@@ -211,20 +267,6 @@ fn analyze_delay(exprs: List) -> Result<Expression, Error> {
         rest: None,
         body: analyze_sequence(exprs)?,
     }))
-}
-
-fn analyze_quote(exp: Sexp) -> Result<Expression, Error> {
-    Ok(match exp {
-        Sexp::List(List::Cons(car, cdr)) => Expression::Call(
-            Box::new(Expression::Variable("cons".to_string())),
-            vec![analyze_quote(*car)?, analyze_quote(Sexp::List(*cdr))?],
-        ),
-        Sexp::List(List::Nil) => Expression::Quotation(Value::Nil),
-        Sexp::Identifier(s) | Sexp::Literal(s) => Expression::Quotation(Value::Str(s)),
-        Sexp::Integer(i) => Expression::Quotation(Value::Int(i)),
-        Sexp::Boolean(b) => Expression::Quotation(Value::Bool(b)),
-        Sexp::Keyword(kw) => Expression::Quotation(Value::Str(format!("{:?}", kw).to_lowercase())),
-    })
 }
 
 #[inline]
