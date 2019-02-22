@@ -1,4 +1,6 @@
 //! Transform and desugaring of HIR to MIR.
+//! 
+//! AST transformations in this phase should NOT produce errors or panics
 
 use super::hir::*;
 use super::mir::Expr;
@@ -6,7 +8,7 @@ use super::*;
 
 /// Helper function to recursively generate nested let expressions
 fn desugar_bindings(mut args: Vec<String>, mut vals: Vec<Expr>, body: Expr) -> Expr {
-    if args.is_empty() {
+    if args.is_empty() || vals.is_empty() {
         body
     } else {
         Expr::Let(
@@ -94,7 +96,7 @@ fn desugar_begin(mut exprs: Sequence) -> Expr {
         desugar(exprs.remove(0))
     } else {
         let mut exprs = exprs.into_iter().map(desugar).collect::<Vec<Expr>>();
-        let body = exprs.pop().unwrap();
+        let body = exprs.pop().unwrap_or(Expr::Val(Value::Nil));
         let vars = (0..exprs.len()).map(|i| format!("~s{}", i)).collect();
         desugar_bindings(vars, exprs, body)
     }
@@ -196,6 +198,7 @@ pub fn desugar(expr: Expression) -> Expr {
         Expression::Variable(s) => Expr::Var(s),
         // Desugaring for quote is done in the analysis phase
         Expression::Quotation(inner) => Expr::Quote(inner),
-        Expression::Keyword(_) => panic!("unrecog {:?}", expr),
+        // This really shouldn't happen, so we WILL panic here, because it's a bug
+        Expression::Keyword(kw) => panic!("unrecognized HIR::Keyword in desugar: {:?}", kw),
     }
 }
