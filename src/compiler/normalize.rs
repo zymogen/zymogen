@@ -56,8 +56,8 @@ pub fn normalize_expr(expr: Expr, table: &mut SymbolTable) -> Expr {
             if is_atomic(&test) {
                 Expr::If(
                     Box::new(normalize_expr(*test, table)),
-                    Box::new(normalize_expr(*csq, table)),
-                    alt.map(|a| Box::new(normalize_expr(*a, table))),
+                    Box::new(lift_let(normalize_expr(*csq, table))),
+                    alt.map(|a| Box::new(lift_let(normalize_expr(*a, table)))),
                 )
             } else {
                 let g = table.gensym();
@@ -68,8 +68,8 @@ pub fn normalize_expr(expr: Expr, table: &mut SymbolTable) -> Expr {
                     test,
                     Box::new(Expr::If(
                         Box::new(n),
-                        Box::new(normalize_expr(*csq, table)),
-                        alt.map(|a| Box::new(normalize_expr(*a, table))),
+                        Box::new(lift_let(normalize_expr(*csq, table))),
+                        alt.map(|a| Box::new(lift_let(normalize_expr(*a, table)))),
                     )),
                 )
             }
@@ -88,7 +88,6 @@ pub fn normalize_expr(expr: Expr, table: &mut SymbolTable) -> Expr {
                 }
             }
 
-            //stack.reverse();
             if is_atomic(&rator) {
                 unbind(
                     stack,
@@ -100,8 +99,8 @@ pub fn normalize_expr(expr: Expr, table: &mut SymbolTable) -> Expr {
                 let n = Expr::Var(table.own(g));
                 Expr::Let(
                     table.own(g),
-                    Box::new(normalize_expr(*rator, table)),
-                    Box::new(unbind(stack, Expr::App(Box::new(n), args), table)),
+                    Box::new(lift_let(normalize_expr(*rator, table))),
+                    Box::new(lift_let(unbind(stack, Expr::App(Box::new(n), args), table))),
                 )
             }
         }
