@@ -1,4 +1,10 @@
-use super::hir::LetBindings;
+//! Transformation to administrative normal form
+//! Loosely based on Matt Might's example (provided in Racket)
+//! http://matt.might.net/articles/a-normalization/
+//! 
+//! These transformations would be significantly easier/cleaner
+//! if we could use a CPS style like that presented in the article,
+//! due to the relatively complicated manipulation of let bindings
 use super::mir::Expr;
 use super::*;
 
@@ -24,11 +30,19 @@ fn unbind(mut args: Vec<(String, Expr)>, body: Expr, t: &mut SymbolTable) -> Exp
     }
 }
 
+/// Lift a Let expression in a bind position to a top level
+/// e.g.
+/// ```skip
+/// (let ((x (let ((y (+ n 1))) y)))
+///     x)
+/// ===>
+/// (let ((y (+ n 1)))
+///     (let ((x y))
+///         x))
 pub fn lift_let(expr: Expr) -> Expr {
     match expr {
         Expr::Let(var, val, body) => {
             if let Expr::Let(var_, val_, body_) = *val {
-                println!("lift let {} {} {}", var, val_, body_);
                 let inner = lift_let(Expr::Let(var, body_, Box::new(lift_let(*body))));
                 lift_let(Expr::Let(var_, val_, Box::new(inner)))
             } else {
@@ -45,17 +59,17 @@ pub fn normalize_expr(expr: Expr, table: &mut SymbolTable) -> Expr {
         Expr::Val(_) => expr,
         Expr::Quote(_) => expr,
         Expr::Lambda(args, rest, body) => {
-            Expr::Lambda(args, rest, Box::new(normalize_expr(*body, table)))
+            Expr::Lambda(args, rest, Box::new(lift_let(normalize_expr(*body, table))))
         }
         Expr::Let(var, val, body) => Expr::Let(
             var,
-            Box::new(normalize_expr(*val, table)),
-            Box::new(normalize_expr(*body, table)),
+            Box::new(lift_let(normalize_expr(*val, table))),
+            Box::new(lift_let(normalize_expr(*body, table))),
         ),
         Expr::If(test, csq, alt) => {
             if is_atomic(&test) {
                 Expr::If(
-                    Box::new(normalize_expr(*test, table)),
+                    Box::new(lift_let(normalize_expr(*test, table))),
                     Box::new(lift_let(normalize_expr(*csq, table))),
                     alt.map(|a| Box::new(lift_let(normalize_expr(*a, table)))),
                 )
@@ -65,7 +79,7 @@ pub fn normalize_expr(expr: Expr, table: &mut SymbolTable) -> Expr {
                 println!("normalized if: {}", g);
                 Expr::Let(
                     table.own(g),
-                    test,
+                    Box::new(lift_let(normalize_expr(*test, table))),
                     Box::new(Expr::If(
                         Box::new(n),
                         Box::new(lift_let(normalize_expr(*csq, table))),
