@@ -60,7 +60,7 @@ impl fmt::Display for Expr {
                 f,
                 "({} {})",
                 rator,
-                rand.into_iter()
+                rand.iter()
                     .map(|e| format!("{}", e))
                     .collect::<Vec<String>>()
                     .join(" ")

@@ -1,49 +1,6 @@
 use super::mir::*;
 use std::collections::{BTreeMap, BTreeSet};
 
-#[derive(Debug)]
-pub struct Gensym {
-    store: BTreeMap<String, u32>,
-    v: Vec<String>,
-}
-
-impl Gensym {
-    pub fn new() -> Gensym {
-        Gensym {
-            store: BTreeMap::new(),
-            v: Vec::new(),
-        }
-    }
-
-    pub fn contains(&self, s: &str) -> bool {
-        self.store.contains_key(s)
-    }
-
-    pub fn store(&mut self, s: String) -> u32 {
-        match self.store.get(&s) {
-            Some(id) => *id,
-            None => {
-                let id = self.v.len() as u32;
-                self.store.insert(s.clone(), id);
-                self.v.push(s);
-                id
-            }
-        }
-    }
-}
-
-pub struct Context {
-    names: Gensym,
-}
-
-impl Context {
-    pub fn new() -> Self {
-        Context {
-            names: Gensym::new(),
-        }
-    }
-}
-
 fn side_effects(exp: &Expr) -> bool {
     match exp {
         Expr::Set(_, _) => true,

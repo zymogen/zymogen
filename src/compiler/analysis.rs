@@ -1,6 +1,6 @@
 //! Parse from raw Sexps to the HIR abstract syntax tree
 use super::ir::hir::{Expression::*, *};
-use super::sexp::{Keyword, List, Sexp, Ty};
+use super::sexp::{List, Sexp, Ty};
 use super::*;
 
 fn analyze_lambda(exprs: List) -> Result<Expression, Error> {
@@ -57,7 +57,7 @@ fn analyze_let_bindings(exprs: List) -> Vec<LetBindings> {
 }
 
 fn analyze_let(exprs: List) -> Result<Expression, Error> {
-    if let &Sexp::Identifier(_) = exprs.car()? {
+    if let Sexp::Identifier(_) = exprs.car()? {
         return analyze_namedlet(exprs);
     }
     let (bindings, body) = exprs.unpack()?;
@@ -67,7 +67,7 @@ fn analyze_let(exprs: List) -> Result<Expression, Error> {
 }
 
 fn analyze_letrec(exprs: List) -> Result<Expression, Error> {
-    if let &Sexp::Identifier(_) = exprs.car()? {
+    if let Sexp::Identifier(_) = exprs.car()? {
         return analyze_namedlet(exprs);
     }
     let (bindings, body) = exprs.unpack()?;
@@ -213,7 +213,7 @@ fn analyze_quasiquote(depth: u32, qqexp: Sexp) -> Result<Expression, Error> {
                     ],
                 ),
                 Sexp::List(List::Cons(caar, _)) => {
-                    if &**caar == &Sexp::Keyword(sexp::Keyword::UnquoteAt) {
+                    if **caar == Sexp::Keyword(sexp::Keyword::UnquoteAt) {
                         let (caar, cdar, _) = car.list()?.unpack2()?;
                         if depth == 1 {
                             mock_call(

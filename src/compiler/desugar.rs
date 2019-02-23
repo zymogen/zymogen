@@ -1,5 +1,5 @@
 //! Transform and desugaring of HIR to MIR.
-//! 
+//!
 //! AST transformations in this phase should NOT produce errors or panics
 
 use super::hir::*;

@@ -39,6 +39,8 @@ fn main() -> io::Result<()> {
     let mut buffer = String::new();
     let stdin = io::stdin();
     let mut handle = stdin.lock();
+
+    let mut table = compiler::SymbolTable::new();
     loop {
         let mut indent: u32 = 0;
         let mut depth: i32 = 0;
@@ -73,7 +75,12 @@ fn main() -> io::Result<()> {
         for exp in sexprs {
             let base = format!("{}", exp);
             match compiler::analyze(exp) {
-                Ok(exp) => last = Some(compiler::desugar(exp)),
+                Ok(exp) => {
+                    last = Some(compiler::lift_let(compiler::normalize_expr(
+                        compiler::desugar(exp),
+                        &mut table,
+                    )))
+                }
                 Err(e) => {
                     println!("Error {:?} during analysis of expression `{}`", e, base);
                     return Ok(());
