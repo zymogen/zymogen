@@ -11,6 +11,8 @@ impl fmt::Display for Symbol {
 }
 
 /// A symbol interning table that allows for constant-time lookups
+/// 
+#[derive(Debug)]
 pub struct SymbolTable {
     inner: HashMap<String, usize>,
     v: Vec<String>,

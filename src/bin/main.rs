@@ -76,10 +76,14 @@ fn main() -> io::Result<()> {
             let base = format!("{}", exp);
             match compiler::analyze(exp) {
                 Ok(exp) => {
-                    last = Some(compiler::lift_let(compiler::normalize_expr(
+                    let e = compiler::normalize_expr(
                         compiler::desugar(exp),
                         &mut table,
-                    )))
+                    );
+                    println!("{}", &e);
+                    let mut com = compiler::Context::from(&mut table);
+                    com.compile(e);
+                    last = Some(format!("{:#?}", com));
                 }
                 Err(e) => {
                     println!("Error {:?} during analysis of expression `{}`", e, base);
@@ -87,8 +91,10 @@ fn main() -> io::Result<()> {
                 }
             }
         }
-
-        println!("===> {}", last.unwrap());
+        if let Some(exp) = last {
+            println!("===> {}", exp);
+        }
+        
         buffer.clear();
     }
     Ok(())

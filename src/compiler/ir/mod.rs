@@ -1,5 +1,6 @@
 pub mod hir;
 pub mod mir;
+pub mod bytecode;
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]

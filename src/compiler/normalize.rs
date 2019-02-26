@@ -43,8 +43,8 @@ pub fn lift_let(expr: Expr) -> Expr {
     match expr {
         Expr::Let(var, val, body) => {
             if let Expr::Let(var_, val_, body_) = *val {
-                let inner = lift_let(Expr::Let(var, body_, Box::new(lift_let(*body))));
-                lift_let(Expr::Let(var_, val_, Box::new(inner)))
+                let inner = lift_let(Expr::Let(var, Box::new(lift_let(*body_)), Box::new(lift_let(*body))));
+                lift_let(Expr::Let(var_, Box::new(lift_let(*val_)), Box::new(inner)))
             } else {
                 Expr::Let(var, val, body)
             }
@@ -54,24 +54,24 @@ pub fn lift_let(expr: Expr) -> Expr {
 }
 
 pub fn normalize_expr(expr: Expr, table: &mut SymbolTable) -> Expr {
-    match expr {
+    let expr = match expr {
         Expr::Var(_) => expr,
         Expr::Val(_) => expr,
         Expr::Quote(_) => expr,
         Expr::Lambda(args, rest, body) => {
-            Expr::Lambda(args, rest, Box::new(lift_let(normalize_expr(*body, table))))
+            Expr::Lambda(args, rest, Box::new(normalize_expr(*body, table)))
         }
         Expr::Let(var, val, body) => Expr::Let(
             var,
-            Box::new(lift_let(normalize_expr(*val, table))),
-            Box::new(lift_let(normalize_expr(*body, table))),
+            Box::new(normalize_expr(*val, table)),
+            Box::new(normalize_expr(*body, table)),
         ),
         Expr::If(test, csq, alt) => {
             if is_atomic(&test) {
                 Expr::If(
-                    Box::new(lift_let(normalize_expr(*test, table))),
-                    Box::new(lift_let(normalize_expr(*csq, table))),
-                    alt.map(|a| Box::new(lift_let(normalize_expr(*a, table)))),
+                    Box::new(normalize_expr(*test, table)),
+                    Box::new(normalize_expr(*csq, table)),
+                    alt.map(|a| Box::new(normalize_expr(*a, table))),
                 )
             } else {
                 let g = table.gensym();
@@ -79,11 +79,11 @@ pub fn normalize_expr(expr: Expr, table: &mut SymbolTable) -> Expr {
                 println!("normalized if: {}", g);
                 Expr::Let(
                     table.own(g),
-                    Box::new(lift_let(normalize_expr(*test, table))),
+                    Box::new(normalize_expr(*test, table)),
                     Box::new(Expr::If(
                         Box::new(n),
-                        Box::new(lift_let(normalize_expr(*csq, table))),
-                        alt.map(|a| Box::new(lift_let(normalize_expr(*a, table)))),
+                        Box::new(normalize_expr(*csq, table)),
+                        alt.map(|a| Box::new(normalize_expr(*a, table))),
                     )),
                 )
             }
@@ -113,10 +113,11 @@ pub fn normalize_expr(expr: Expr, table: &mut SymbolTable) -> Expr {
                 let n = Expr::Var(table.own(g));
                 Expr::Let(
                     table.own(g),
-                    Box::new(lift_let(normalize_expr(*rator, table))),
+                    Box::new(normalize_expr(*rator, table)),
                     Box::new(lift_let(unbind(stack, Expr::App(Box::new(n), args), table))),
                 )
             }
         }
-    }
+    };
+    lift_let(expr)
 }
